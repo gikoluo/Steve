@@ -111,15 +111,16 @@ usage()
 {
   cat <<EOF
 Usage:
-$0 [-h|--help] [--app IDENTIFIER] [--prod ProductName] [--bv BundleVersion] [--configuration Release|Debug] [--init] [-v|--verbose]
+$0 [h?vVfk:s:]
 OPTIONS:
-   -h|--help        Show this message
-   -V|--version     App Version
-   -v               Verbose
-   -s|--servername  Server name
-   -t               Type. Support types:  jar, tomcat, weblogic
-   -k               Action. start, stop, restart, debug
-   -f               force
+   -s     Server name
+   -k     Action. start, stop, restart, debug
+   -h|-?  Show this message
+   -V     App Version
+   -v     Verbose
+   -f     Force run
+
+   
 
 Example:
     ./steve.sh [arguments] action
@@ -136,11 +137,13 @@ readconfig()
     shopt -s extglob
     while IFS='=' read lhs rhs
     do
-        if [[ $lhs != "#"* ]]; then
+      if [[ $rhs != "" ]]; then
+        if [[ $lhs != "#"* -o $lhs != "[" ]]; then
             # you can test for variables to accept or other conditions here
             #let $lhs=$rhs
             export "$lhs"="$rhs"
         fi
+      fi
     done < "$configfile"
 }
 
@@ -221,11 +224,11 @@ function check_sv_service()
 }
 
 
-
+##main start###
 
 verbose=false
 force=0
-while getopts "h?vVfk:t:c:s:" opt; do
+while getopts "h?vVfk:t:s:" opt; do
     case "$opt" in
     h|\?)
         usage
@@ -266,7 +269,6 @@ readconfig "$STEVE_CONFIG""$servername".conf
 if [ "$action" = "debug" ] ; then
   echo "Debug command not available now."
   exit 1
-
 elif [ "$action" = "start" ]; then
     #check port, DIE if port is in use
     if [ ! -z "$use_port" ]; then
@@ -533,8 +535,6 @@ elif [ "$action" = "stop" ]; then
     else
       die "===== FATAL. ${servername} is not stopped cleanly. Login to the server and check ====="
     fi
-    
-
 elif [ "$action" = "restart" ]; then
     command="${0} ${@}"
     stop_command=${command/\-k restart/\-k stop}
@@ -548,5 +548,8 @@ elif [ "$action" = "restart" ]; then
 
     info "=== Step2 Then Starting...==="
     $start_command
+else
+  die "Unknow Action $action" ERROR_UNKNOWN
 fi
+
 
