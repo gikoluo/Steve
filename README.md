@@ -1,6 +1,11 @@
 # Steve
 建立了一个Bash脚本，用于启停进程。启停前后，均会对进程关联进程进行检查，确保进程被完全关闭，也确保进程被正确启动。 对于顽固进程特别有效！
-
+功能：
+- 服务安全启动
+- 服务安全关闭
+- 监控服务状态
+- 自动重启服务。 当服务意外蹦了的时候，自动重启之
+- 以及Supervisord提供的管理服务的WEB工具
 
 # 安装
 本脚本为纯Bash， 尽量较少运维依赖。 Git clone后即可使用。
@@ -59,7 +64,7 @@ file=/data/jfpal_workspace/architect/samples/hello.jar
 - sleep_time  （option） Default： 5。检查后等待sleep_time秒后，进行下一次检查。
 - retry_time  （option） Default： 5。检查失败后的重试次数
 - forcekill    (option) 在第N次检查后，如果服务认为停止，则使用`kill -TERM`杀掉进程。 检查包括port， pname检查。 N从0开始
-- forcekill9   (option) 在第N次检查后，如果服务认为停止，则使用`kill -KILL`（`kill -9`））杀掉进程。 检查包括port， pname检查。 N从0开始。 如果forcekill， forcekill9无此选项，或大约retry_time， 则不会使用kill灭进程。
+- forcekill9   (option) 在第N次检查后，如果服务认为停止，则使用`kill -KILL`（`kill -9`））杀掉进程。 检查包括port， pname检查。 N从0开始。 如果forcekill， forcekill9无此选项，或大约retry_time， 则不会使用kill灭进程。 forcekill9 数字应该大于 forcekill
 
 
 # Steve使用
