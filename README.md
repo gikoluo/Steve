@@ -178,3 +178,8 @@ file=/data/jfpal_workspace/architect/samples/hello.jar
 ```
 ##RESTART
 STOP && Start
+
+
+# 咖啡
+如果您觉得此功能有用，微信扫一扫，请我喝杯咖啡。
+
