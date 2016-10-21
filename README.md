@@ -182,4 +182,4 @@ STOP && Start
 
 # 咖啡
 如果您觉得此功能有用，微信扫一扫，请我喝杯咖啡。
-
+ ![即富二维码](https://raw.githubusercontent.com/gikoluo/Steve/master/samples/A00000000066.png)
