@@ -7,6 +7,9 @@
 - 自动重启服务。 当服务意外蹦了的时候，自动重启之
 - 以及Supervisord提供的管理服务的WEB工具
 
+更多介绍和使用说明，参考 [Wiki](https://github.com/gikoluo/Steve/wiki)
+
+
 # 安装
 本脚本为纯Bash， 尽量较少运维依赖。 Git clone后即可使用。
 服务启动依赖于Supervisor。 Supervisord是用Python实现的一款非常实用的进程管理工具，类似于monit。
@@ -79,9 +82,6 @@ file=/data/jfpal_workspace/architect/samples/hello.jar
 - -V     Steve Version   显示Steve版本
 - -v     Verbose         显示调试信息
 - -f     Force run       强制运行，即使在检查中发生错误。 尽量别用。
-
-# Steve Wiki
-* [Home](https://github.com/gikoluo/Steve/wiki)
 
 # Steve Process
 ##STOP
