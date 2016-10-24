@@ -137,10 +137,9 @@ readconfig()
     shopt -s extglob
     while IFS='=' read lhs rhs
     do
-      if [[ $rhs != "" ]]; then
-        if [[ $lhs != "#"* -o $lhs != "[" ]]; then
-            # you can test for variables to accept or other conditions here
-            #let $lhs=$rhs
+      if [[ "$rhs" != "" ]]; then
+        if [[ ! ( "$lhs" = "["* || "$lhs" = "#"* ) ]]; then
+            echo "$lhs"="$rhs"
             export "$lhs"="$rhs"
         fi
       fi
@@ -263,8 +262,8 @@ readconfig "$STEVE_CONFIG""$servername".conf
 [ -z "$supervisor_name" ] && supervisor_name="${servername}"
 [ -z "$retry_time" ] && retry_time=5
 [ -z "$sleep_time" ] && sleep_time=5
-[ -z "$forcekill" ] && $forcekill=256
-[ -z "$forcekill9" ] && $forcekill9=256
+[ -z "$forcekill"  ] && forcekill=256
+[ -z "$forcekill9" ] && forcekill9=256
 
 if [ "$action" = "debug" ] ; then
   echo "Debug command not available now."
