@@ -139,7 +139,6 @@ readconfig()
     do
       if [[ "$rhs" != "" ]]; then
         if [[ ! ( "$lhs" = "["* || "$lhs" = "#"* ) ]]; then
-            echo "$lhs"="$rhs"
             export "$lhs"="$rhs"
         fi
       fi
