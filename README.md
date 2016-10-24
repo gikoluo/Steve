@@ -80,6 +80,9 @@ file=/data/jfpal_workspace/architect/samples/hello.jar
 - -v     Verbose         显示调试信息
 - -f     Force run       强制运行，即使在检查中发生错误。 尽量别用。
 
+# Steve Wiko
+* [Home](https://github.com/gikoluo/Steve/wiki)
+
 # Steve Process
 ##STOP
 ```
