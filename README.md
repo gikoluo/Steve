@@ -7,6 +7,9 @@
 - 自动重启服务。 当服务意外蹦了的时候，自动重启之
 - 以及Supervisord提供的管理服务的WEB工具
 
+更多介绍和使用说明，参考 [Wiki](https://github.com/gikoluo/Steve/wiki)
+
+
 # 安装
 本脚本为纯Bash， 尽量较少运维依赖。 Git clone后即可使用。
 服务启动依赖于Supervisor。 Supervisord是用Python实现的一款非常实用的进程管理工具，类似于monit。
@@ -63,8 +66,8 @@ file=/data/jfpal_workspace/architect/samples/hello.jar
 - use_pname   （option） 进程名。 进程启停时，将通过ps进行检查。 应该选用能显示能唯一代表进程的名字，如文件名.jar等。 不要使用java等进程名，以防误判误伤。
 - sleep_time  （option） Default： 5。检查后等待sleep_time秒后，进行下一次检查。
 - retry_time  （option） Default： 5。检查失败后的重试次数
-- forcekill    (option) 在第N次检查后，如果服务认为停止，则使用`kill -TERM`杀掉进程。 检查包括port， pname检查。 N从0开始
-- forcekill9   (option) 在第N次检查后，如果服务认为停止，则使用`kill -KILL`（`kill -9`））杀掉进程。 检查包括port， pname检查。 N从0开始。 如果forcekill， forcekill9无此选项，或大约retry_time， 则不会使用kill灭进程。 forcekill9 数字应该大于 forcekill
+- forcekill    (option) 在第N次检查后，如果服务仍未停止，则使用`kill -TERM`杀掉进程。 检查包括port， pname检查。 N从0开始
+- forcekill9   (option) 在第N次检查后，如果服务仍未停止，则使用`kill -KILL`（`kill -9`））杀掉进程。 检查包括port， pname检查。 N从0开始。 如果forcekill， forcekill9无此选项，或大约retry_time， 则不会使用kill灭进程。 forcekill9 数字应该大于 forcekill
 
 
 # Steve使用
@@ -80,7 +83,7 @@ file=/data/jfpal_workspace/architect/samples/hello.jar
 - -v     Verbose         显示调试信息
 - -f     Force run       强制运行，即使在检查中发生错误。 尽量别用。
 
-# Steve Process
+# Steve Processes
 ##STOP
 ```
             +---------------+
