@@ -148,12 +148,12 @@ readconfig()
 check_port() 
 {
   PID=
-  port=${1}
+  port="${1}"
   PID=`lsof -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'`
-  if [ -z $PID ]; then
+  if [ -z $TMPPID ]; then
       debug "Port ${port} is free"
   else
-      debug "Port ${port} #{$PID} is used"
+      debug "Port ${port} #{$TMPPID} is used"
   fi
 }
 
@@ -254,7 +254,7 @@ while getopts "h?vVfk:t:s:" opt; do
     esac
 done
 
-[ -z servername ] && echo "Server name must be set" && die 1
+[ -z ${servername} ] && usage && die "Server name must be set" ERROR_UNKNOWN
 
 readconfig "$STEVE_CONFIG""$servername".conf
 
@@ -270,13 +270,15 @@ if [ "$action" = "debug" ] ; then
 elif [ "$action" = "start" ]; then
     #check port, DIE if port is in use
     if [ ! -z "$use_port" ]; then
-      check_port "$use_port"
-      if [ ! -z "$PID" ]; then
-        debug "PID ""$PID"
-        if [ $force -eq 0 ]; then
-          die "check port ${use_port} #{$PID} failed. The port is in used." "${ERROR_PORT_USED}"
+      for port in $(echo $use_port | tr ";" "\n"); do
+        check_port "$port"
+        if [ ! -z "$PID" ]; then
+          debug "PID ""$PID"
+          if [ $force -eq 0 ]; then
+            die "check port ${port} #{$PID} failed. The port is in used." "${ERROR_PORT_USED}"
+          fi
         fi
-      fi
+      done
     fi
 
     if [ ! -z "$check_pid" ]; then
@@ -353,13 +355,15 @@ elif [ "$action" = "start" ]; then
 
 
       if [ ! -z "$use_port" ]; then
-        check_port "$use_port"
-        if [ -z "$PID" ]; then
-          warning "check port ${use_port} failed."
-          COMMAND_STATUS=1
-        else
-          success "Port ${use_port} started"
-        fi
+        for port in $(echo $use_port | tr ";" "\n"); do
+          check_port "$port"
+          if [ -z "$PID" ]; then
+            warning "check port ${port} failed."
+            COMMAND_STATUS=1
+          else
+            success "Port ${port} started"
+          fi
+        done
       fi
 
       if [ ! -z "$check_pid" ]; then
@@ -394,10 +398,12 @@ elif [ "$action" = "start" ]; then
 elif [ "$action" = "stop" ]; then
     if [ ! -z "$use_port" ]; then
       debug "Checking port ${use_port}..."
-      check_port "$use_port"
-      if [ ! -z "$PID" ]; then
-        success "Checked: Port ${use_port} #{$PID} is running."
-      fi
+      for port in $(echo $use_port | tr ";" "\n"); do
+        check_port "$port"
+        if [ ! -z "$PID" ]; then
+          success "Checked: Port ${port} #{$PID} is running."
+        fi
+      done
     fi
 
     if [ ! -z "$check_pid" ]; then
@@ -467,23 +473,25 @@ elif [ "$action" = "stop" ]; then
 
 
       if [ ! -z "$use_port" ]; then
-        check_port "$use_port"
-        if [ ! -z "$PID" ]; then
-            warning "Check port $use_port #${PID} is still running."
-            COMMAND_STATUS=1
+        for port in $(echo $use_port | tr ";" "\n"); do
+          check_port "$port"
+          if [ ! -z "$PID" ]; then
+              warning "Check port $port #${PID} is still running."
+              COMMAND_STATUS=1
 
-            if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
-              warning "Use Kill TERM to stop the process #{$PID} on port $use_port"
-              kill -TERM $PID
-            fi
+              if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
+                warning "Use Kill TERM to stop the process #{$PID} on port $port"
+                kill -TERM $PID
+              fi
 
-            if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
-              warning "Use Kill 9 to stop the process #${PID} on port $use_port"
-              kill -KILL $$PID
-            fi
-        else
-          success "Check port $use_port success."
-        fi
+              if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
+                warning "Use Kill 9 to stop the process #${PID} on port $port"
+                kill -KILL $$PID
+              fi
+          else
+            success "Check port $port success."
+          fi
+        done
       fi
 
       if [ ! -z "$check_pid" ]; then
