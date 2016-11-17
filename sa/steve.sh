@@ -203,6 +203,7 @@ function die() {
   if [ ! -z "$2" ]; then
     errcode=$2
   fi
+
   exit $errcode;
 }
 
@@ -254,7 +255,7 @@ while getopts "h?vVfk:t:s:" opt; do
     esac
 done
 
-[ -z ${servername} ] && usage && die "Server name must be set" ERROR_UNKNOWN
+[ -z ${servername} ] && usage && die "Server name must be set" $ERROR_UNKNOWN
 
 readconfig "$STEVE_CONFIG""$servername".conf
 
@@ -555,7 +556,7 @@ elif [ "$action" = "restart" ]; then
     info "=== Step2 Then Starting...==="
     $start_command
 else
-  die "Unknow Action $action" ERROR_UNKNOWN
+  die "Unknow Action $action" $ERROR_UNKNOWN
 fi
 
 
