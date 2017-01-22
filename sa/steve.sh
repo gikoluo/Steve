@@ -1,57 +1,62 @@
 #!/bin/bash
-JAVA_OPTS=""
-STEVE_VERSION="0.1"
+#================================================================
+# HEADER
+# Licensed to LUOCHUNHUI.COM 
+# Control Script for the Service Management
+#================================================================
+#% SYNOPSIS
+#+    ${SCRIPT_NAME} [-hv] [-o[file]] args ...
+#%
+#%
+#% ENVIROMENT
+#%   Enviroment Variable Prerequisites
+#%   STEVE_CONFIG    Default: "/etc/steve/"
+#%                   Configuration directory path to a directory where 
+#%                   store the configuration for steve and services.
+#%                   Default is "/etc/steve/", and
+#%                   the "setenv.sh" inside will be loaded.
+#%
+#% DESCRIPTION
+#%    This is a script template
+#%    to start any good shell script.
+#%
+#% OPTIONS
+#%    -o [file], --output=[file]    Set log file (default=/dev/null)
+#%                                  use DEFAULT keyword to autoname file
+#%                                  The default value is /dev/null.
+#%    -t, --timelog                 Add timestamp to log ("+%y/%m/%d@%H:%M:%S")
+#%    -x, --ignorelock              Ignore if lock file exists
+#%    -h, --help                    Print this help
+#%    -v, --version                 Print script information
+#%
+#% EXAMPLES
+#%    ${SCRIPT_NAME} -s hello -k restart
+#%
+#================================================================
+#- IMPLEMENTATION
+#-    version         ${SCRIPT_NAME} (www.uxora.com) 0.0.4
+#-    author          Michel VONGVILAY
+#-    copyright       Copyright (c) http://www.uxora.com
+#-    license         GNU General Public License
+#-    script_id       12345
+#-
+#================================================================
+#  HISTORY
+#     2015/03/01 : mvongvilay : Script creation
+#     2015/04/01 : mvongvilay : Add long options and improvements
+# 
+#================================================================
+#  DEBUG OPTION
+#    set -n  # Uncomment to check your syntax, without execution.
+#    set -x  # Uncomment to debug this shell script
+#
+#================================================================
+# END_OF_HEADER
+#================================================================
 
 
-NEXT_WAIT_TIME=0
-COMMAND_STATUS=1
-
-
-# Licensed to JFPAL.COM 
-# -----------------------------------------------------------------------------
-# Control Script for the JF Servers
-#
-# Environment Variable Prerequisites
-#
-#   Do not set the variables in this script. Instead put them into a script
-#   setenv.sh in STEVE_BASE/bin to keep your customizations separate.
-#
-#   STEVE_HOME      May point at your STEVE "build" directory.
-#
-#   STEVE_BASE      (Optional) Base directory for resolving dynamic portions
-#                   of a Catalina installation.  If not present, resolves to
-#                   the same directory that STEVE_HOME points to.
-#
-#   STEVE_CONFIG    (Optional) Configuration directory path to a file where 
-#                   store the options for server name. 
-#                   Default is $STEVE_BASE/config/, and 
-#                   the ${SERVER_NAME}.conf inside will be loaded.
-#
-#   WITH_SUDO       (Optional) Set it to sudo if you need.
-#
-#   STEVE_OUT       (Optional) Full path to a file where stdout and stderr
-#                   will be redirected.
-#                   Default is $STEVE_BASE/logs/catalina.out
-#
-#   STEVE_OPTS      (Optional) Java runtime options used when the "start",
-#                   "run" or "debug" command is executed.
-#                   Include here and not in JAVA_OPTS all options, that should
-#                   only be used by Tomcat itself, not by the stop process,
-#                   the version command etc.
-#                   Examples are heap size, GC logging, JMX ports etc.
-#
-#   STEVE_TMPDIR   (Optional) Directory path location of temporary directory
-#                   the JVM should use (java.io.tmpdir).  Defaults to
-#                   $STEVE_BASE/temp.
-#
-#   JAVA_HOME       Must point at your Java Development Kit installation.
-#                   Required to run the with the "debug" argument.
-#
-#   JRE_HOME        Must point at your Java Runtime installation.
-#                   Defaults to JAVA_HOME if empty. If JRE_HOME and JAVA_HOME
-#                   are both set, JRE_HOME is used.
-#   LSOF_BIN        lsof bin
-# -----------------------------------------------------------------------------
+##########    Constants   ##########
+STEVE_VERSION="0.8"
 
 ERROR_UNKNOWN=1
 ERROR_PORT_USED=2
@@ -69,57 +74,120 @@ SERVICE_STATE_RUNNING=23
 SERVICE_STATE_EXITED=24
 SERVICE_STATE_FATAL=25
 SERVICE_STATE_STOPPING=26
+SERVICE_STATE_UNKNOWN=29
 
-supervisorctl="supervisorctl"
-[ -f steve_profile ] && source steve_profile
+##########    Constants END   ##########
+
+##########    Globals   ##########
+PID=
+SERVICE_TYPE=
+SERVICE_NAME=
+
+RUN_RESULT=
+RUN_CODE=
+##########    Globals END   ##########
+
+##########    Initialize config, which can be override in steve.conf   ##########
+SUPERVISORCTL_BIN="supervisorctl"
+LSOF_BIN="lsof"
+STEVE_OUT="/var/log/steve.log"
+WITH_SUDO=""
+VERBOSE=false
+
+[ -z "$STEVE_CONFIG" ] && STEVE_CONFIG="/etc/steve/"
+
+STEVE_ENV="${STEVE_CONFIG}/setenv.sh"
+[ -f $STEVE_ENV ] && source $STEVE_ENV
+
+##########    Initialize config END   ##########
 
 
 
+##########    Libraries    ##########
 
-# OS specific support.  $var _must_ be set to either true or false.
-cygwin=false
-darwin=false
-os400=false
-case "`uname`" in
-CYGWIN*) cygwin=true;;
-Darwin*) darwin=true;;
-OS400*) os400=true;;
-esac
+####################    logger    ###################
+### this file is copy from http://www.cubicrace.com/2016/03/efficient-logging-mechnism-in-shell.html ###
+SCRIPT_LOG="${STEVE_OUT}"
+function SCRIPTENTRY(){
+ timeAndDate=`date`
+ script_name=`basename "$0"`
+ script_name="${script_name%.*}"
+ echo "[$timeAndDate] [DEBUG]  > $script_name $FUNCNAME" >> $SCRIPT_LOG
+}
 
-# resolve links - $0 may be a softlink
-PRG="$0"
+function SCRIPTEXIT(){
+ script_name=`basename "$0"`
+ script_name="${script_name%.*}"
+ echo "[$timeAndDate] [DEBUG]  < $script_name $FUNCNAME" >> $SCRIPT_LOG
+}
 
-while [ -h "$PRG" ]; do
-  ls=`ls -ld "$PRG"`
-  link=`expr "$ls" : '.*-> \(.*\)$'`
-  if expr "$link" : '/.*' > /dev/null; then
-    PRG="$link"
-  else
-    PRG=`dirname "$PRG"`/"$link"
+function ENTRY(){
+ local cfn="${FUNCNAME[1]}"
+ timeAndDate=`date`
+ echo "[$timeAndDate] [DEBUG]  > $cfn $FUNCNAME" >> $SCRIPT_LOG
+}
+
+function EXIT(){
+ local cfn="${FUNCNAME[1]}"
+ timeAndDate=`date`
+ echo "[$timeAndDate] [DEBUG]  < $cfn $FUNCNAME" >> $SCRIPT_LOG
+}
+
+
+function INFO(){
+ local function_name="${FUNCNAME[1]}"
+    local msg="$1"
+    timeAndDate=`date`
+    echo "[$timeAndDate] [INFO]  $msg" >> $SCRIPT_LOG
+}
+
+
+function DEBUG(){
+ local function_name="${FUNCNAME[1]}"
+    local msg="$1"
+    timeAndDate=`date`
+ echo "[$timeAndDate] [DEBUG]  $msg" >> $SCRIPT_LOG
+}
+
+function ERROR(){
+ local function_name="${FUNCNAME[1]}"
+    local msg="$1"
+    timeAndDate=`date`
+    echo "[$timeAndDate] [ERROR]  $msg" >> $SCRIPT_LOG
+}
+####################    logger end    ###################
+
+function WARNING(){
+ local function_name="${FUNCNAME[1]}"
+    local msg="$1"
+    timeAndDate=`date`
+    echo "[$timeAndDate] [WARNING]  $msg" >> $SCRIPT_LOG
+}
+
+function FATAL(){
+ local function_name="${FUNCNAME[1]}"
+    local msg="$1"
+    timeAndDate=`date`
+    echo "[$timeAndDate] [FATAL]  $msg" >> $SCRIPT_LOG
+}
+
+function DIE() {
+  FATAL "$1";
+  local errcode=1
+  if [ ! -z "$2" ]; then
+    errcode=$2
   fi
-done
-# Get standard environment variables
-PRGDIR=`dirname "$PRG"`
+  
+  exit $errcode;
+}
 
-# Only set CATALINA_HOME if not already set
-[ -z "$STEVE_CONFIG" ] && STEVE_CONFIG="/etc/steve/"
 
-echo "STEVE_HOME", ${STEVE_HOME}
+##########    Libraries End   ##########
 
-# Copy STEVE_BASE from CATALINA_HOME if not already set
-[ -z "$STEVE_BASE" ] && STEVE_BASE="$STEVE_HOME"
 
-[ -z "$STEVE_CONFIG" ] && STEVE_CONFIG="/etc/steve/"
+##########    Functions   ##########
 
-[ -z "$STEVE_OUT" ] && STEVE_OUT="$STEVE_BASE"/logs/steve.out
-
-[ -z "$STEVE_TMPDIR" ] && STEVE_TMPDIR="$STEVE_BASE"/temp
-
-[ -z "$WITH_SUDO" ] && WITH_SUDO=""
-
-[ -z "$LSOF_BIN"] && LSOF_BIN="lsof"
-
-usage()
+function usage()
 {
   cat <<EOF
 Usage:
@@ -130,20 +198,22 @@ OPTIONS:
    -h|-?  Show this message
    -V     App Version
    -v     Verbose
-   -f     Force run
 
 Example:
     ./steve.sh [arguments] action
 EOF
 };
-version()
+
+function version()
 {
     echo ${STEVE_VERSION};
 }
 
-readconfig()
+#Read the config, formatted with "key=value".
+#Anything start with "#" or "[" will be ignored
+function readconfig()
 {
-    configfile=$1
+    local configfile=$1
     shopt -s extglob
     while IFS='=' read lhs rhs
     do
@@ -158,217 +228,209 @@ readconfig()
 function check_port() 
 {
   PID=
-  port="${1}"
-  debug "${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'"
+  local port="${1}"
+  DEBUG "Checking port: ${port}"
+  INFO "CMD: ${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'"
 
   PID=`${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'`
 
-  if [ -z $TMPPID ]; then
-      debug "Port ${port} is free"
+  if [ -z $PID ]; then
+      INFO "Port ${port} is free"
   else
-      debug "Port ${port} #{$TMPPID} is used"
+      INFO "Port ${port} is used"
   fi
 }
 
-check_pid()
+function check_pid()
 {
   PID=
-  pidfile=$1
+  local pidfile=$1
   
   if [ -f "$pidfile" ]; then
     if [ -s "$pidfile" ]; then
-      echo "Existing PID file found during start."
+      INFO "Existed PID file found during start."
       if [ -r "$pidfile" ]; then
         PID=`cat "$pidfile"`
         ps -p $PID >/dev/null 2>&1
         if [ $? -eq 0 ] ; then
-          echo "Server appears to still be running with PID $PID."
+          DEBUG "Server appears to still be running with PID $PID."
           return
         else
-          echo "PID exists, but server is not stopped"
+          DEBUG "PID file exists, but server is not stopped"
         fi
       else
-        echo "Unable to read PID file."
+        DEBUG "Unable to read PID file."
       fi
     else
-      echo "A empty PID file."
+      DEBUG "A empty PID file."
     fi
   fi
 }
 
-check_pname()
+function check_pname()
 {
   PID=
-  pname=${1}
+  local pname=${1}
   PID=`ps aux | grep "${pname}" | grep -v "grep" |awk '{print $2}'`
 
   if [ ! -z "$PID" ]; then
-      debug "Process named ${pname} #{$PID} exists"
+      DEBUG "Process named ${pname} #{$PID} exists"
   else
-      debug "Process named ${pname} does NOT exists"
+      DEBUG "Process named ${pname} does NOT exists"
   fi
   return
 }
 
-function die() {
-  echo "FATAL. $1";
-  errcode=1
-  if [ ! -z "$2" ]; then
-    errcode=$2
-  fi
-
-  exit $errcode;
-}
-
-function info()    { echo "INFO.   " "$1"; }
-function warning() { echo "WARNING." "$1"; }
-function success() { echo "SUCCESS." "$1"; }
-function debug()   { echo "DEBUG.  " "$1"; }
-function fatal()   { echo "FATAL.  " "$1"; }
-function cmd()     { echo "CMD.    " "$1"; }
 
 function check_sv_service()
 {
     if [[ $sv_result == *"supervisor.sock no such file"* ]]; then
-        fatal "supervisord is not running"
+        ERROR "supervisord is not running"
         return ${ERROR_SV_NOTRUNNING}
     elif [[ $sv_result == *"no such processg"* ]]; then
-        fatal "supervisor process ${supervisor_name} is not exists"
+        ERROR "supervisor process ${supervisor_name} is not exists"
         return ${ERROR_SV_NOTEXISTS}
     fi
 
     if [[ $sv_result == *"RUNNING"* ]]; then
-        #if [ $force -eq 0 ]; then
-        info "supervisor process ${supervisor_name} is running" ${ERROR_SV_ISRUNNING}
-        #fi
+        INFO "supervisor process ${supervisor_name} is running"
+        return ${SERVICE_STATE_RUNNING}
     elif [[ $sv_result == *"FATAL"* ]]; then
-        info "NOTICE: The previously status is FATAL"
+        INFO "NOTICE: The previously supervisor status is FATAL"
+        return ${SERVICE_STATE_FATAL}
     elif [[ $sv_result == *"STOPPED"* ]]; then
-        info "The previously status is STOPPED"
+        INFO "The previously supervisor status is STOPPED"
+        return ${SERVICE_STATE_NOT_RUNNING}
     elif [[ $sv_result == *"EXITED"* ]]; then
-        info "The previously status is EXITED"
+        INFO "The previously supervisor status is EXITED"
+        return ${SERVICE_STATE_EXITED}
     fi
 
-    #"STARTING" "STOPPING"
-    if [[ $sv_result == *"RUNNING"* ]]; then
-        info "supervisor process ${supervisor_name} is running"
-    elif [[ $sv_result == *"FATAL"* ]]; then
-        info "NOTICE: The previously supervisor status is FATAL"
-    elif [[ $sv_result == *"STOPPED"* ]]; then
-        info "The previously supervisor status is STOPPED"
-    elif [[ $sv_result == *"EXITED"* ]]; then
-        info "The previously supervisor status is EXITED"
-    fi
-
-    return 0
+    return ${SERVICE_STATE_UNKNOWN}
 }
 
 function service_prepare_check() 
 {
-  if [[ $servicetype == "supervisord" ]]; then
-    sv_command="${WITH_SUDO} ${supervisorctl} status ${servicename}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+  local cmd=
+  local cmd_result=
+  local chk_result=
+  local chk_code=
 
-    check_result=`check_sv_service`
-    check_result_code=$?
+  if [[ $SERVICE_TYPE == "supervisord" ]]; then
+    cmd="${WITH_SUDO} ${SUPERVISORCTL_BIN} status ${SERVICE_NAME}"
+    INFO "CMD: ${cmd}"
+    cmd_result=`${cmd}`
 
-    echo "${check_retulr}" 
-    return $check_result_code
-  elif [[ $servicetype == "init.d" ]]; then
-    sv_command="/etc/init.d/${servicename}"
-    if [[ ! -f ${sv_command} ]]; then
-        fatal "service does NOT exists" 
+    chk_result=`check_sv_service`
+    chk_code=$?
+
+    INFO "CMD>: ${check_result}" 
+    return $chk_code
+  elif [[ $SERVICE_TYPE == "init.d" ]]; then
+    cmd="/etc/init.d/${SERVICE_NAME}"
+    INFO "CMD: ls ${cmd}"
+    if [[ ! -f ${cmd} ]]; then
+        ERROR "service does NOT exists" 
         return ${ERROR_SV_NOTEXISTS}
     fi
-  elif [[ $servicetype == "systemd" ]]; then
-    sv_command="/etc/systemd/system/${servicename}.service"
-    if [[ ! -f ${sv_command} ]]; then
-        fatal "service does NOT exists" 
+  elif [[ $SERVICE_TYPE == "systemd" ]]; then
+    cmd="/etc/systemd/system/${SERVICE_NAME}.service"
+    INFO "CMD: ls ${cmd}"
+    if [[ ! -f ${cmd} ]]; then
+        ERROR "service does NOT exists" 
         return ${ERROR_SV_NOTEXISTS}
     fi
   fi
-  debug "${sv_command}"
-  debug "${sv_result}"
 
   return 0
 }
 
 function service_start()
 {
-  echo "servicetype=${servicetype}"
-  if [[ $servicetype == "supervisord" ]]; then
-    sv_command="${WITH_SUDO} ${supervisorctl} start ${servicename}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+  local cmd=
+  local cmd_result=
+
+  if [[ $SERVICE_TYPE == "supervisord" ]]; then
+    cmd="${WITH_SUDO} ${SUPERVISORCTL_BIN} start ${SERVICE_NAME}"
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
   elif [[ $servicetype == "init.d" ]]; then
-    sv_command="${WITH_SUDO} /etc/init.d/${servicename} start"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+    cmd="${WITH_SUDO} /etc/init.d/${SERVICE_NAME} start"
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
   elif [[ $servicetype == "systemd" ]]; then
-    sv_command="${WITH_SUDO} systemctl start ${servicename}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+    cmd="${WITH_SUDO} systemctl start ${SERVICE_NAME}"
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
   fi
-  info "${sv_command}"
-  info "Service start info: $sv_result"
+  info "Service start info: $RUN_RESULT"
+}
+
+function service_check_supervisor() {
+  if [[ $RUN_RESULT == *"already started"* ]]; then
+    INFO "OK. Supervisor process ${servicename} is already started"
+    return ${SERVICE_STATE_RUNNING}
+  elif [[ $RUN_RESULT == *"RUNNING"* ]]; then
+      INFO "OK. Supervisor process ${servicename} is running"
+      return ${SERVICE_STATE_RUNNING}
+  elif [[ $RUN_RESULT == *"started"* ]]; then
+    INFO "OK. Supervisor process ${servicename} started"
+    return ${SERVICE_STATE_RUNNING}
+  elif [[ $RUN_RESULT == *"ERROR"* ]]; then
+    INFO "FATAL: The supervisor status is FATAL: ${RUN_RESULT}" 
+    return ${SERVICE_STATE_FATAL}
+  elif [[ $RUN_RESULT == *"FATAL"* ]]; then
+      INFO "FATAL: The supervisor status is FATAL" 
+      return ${SERVICE_STATE_FATAL}
+  elif [[ $RUN_RESULT == *"STOPPED"* ]]; then
+      INFO "FATAL: The supervisor status is STOPPED" 
+      return ${SERVICE_STATE_EXITED}
+  elif [[ $RUN_RESULT == *"EXITED"* ]]; then
+      INFO "FATAL: The supervisor status is EXITED" 
+      return ${SERVICE_STATE_EXITED}
+  fi
 }
 
 function service_check() {
-  if [[ $sv_result == *"already started"* ]]; then
-    debug "OK. Supervisor process ${servicename} is already started"
-    return ${SERVICE_STATE_RUNNING}
-  elif [[ $sv_result == *"started"* ]]; then
-    debug "OK. Supervisor process ${servicename} started"
-    return ${SERVICE_STATE_RUNNING}
-  elif [[ $sv_result == *"ERROR"* ]]; then
-    debug "FATAL: The supervisor status is FATAL: ${sv_result}" 
-    return ${SERVICE_STATE_FATAL}
+  if [[ $SERVICE_TYPE == "supervisord" ]]; then
+    return service_check_supervisor
+  elif [[ $servicetype == "init.d" ]]; then
+    DEBUG "";
+  elif [[ $servicetype == "systemd" ]]; then
+    DEBUG "";
   fi
 
-  if [[ $sv_result == *"RUNNING"* ]]; then
-      debug "OK. Supervisor process ${servicename} is running"
-      return ${SERVICE_STATE_RUNNING}
-  elif [[ $sv_result == *"FATAL"* ]]; then
-      debug "FATAL: The supervisor status is FATAL" 
-      return ${SERVICE_STATE_FATAL}
-  elif [[ $sv_result == *"STOPPED"* ]]; then
-      debug "FATAL: The supervisor status is STOPPED" 
-      return ${SERVICE_STATE_EXITED}
-  elif [[ $sv_result == *"EXITED"* ]]; then
-      debug "FATAL: The supervisor status is EXITED" 
-      return ${SERVICE_STATE_EXITED}
-  fi
   return 0
 }
 
 function service_stop()
 {
-  if [[ "${servicetype}" == "supervisord" ]]; then
-    sv_command="${WITH_SUDO} ${supervisorctl} stop ${supervisor_name}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+  local cmd=
 
-    info "Supervisorctl return: $sv_result"
+  DEBUG "${SERVICE_TYPE} stop"
+
+  if [[ "${SERVICE_TYPE}" == "supervisord" ]]; then
+    cmd="${WITH_SUDO} ${supervisorctl} stop ${supervisor_name}"
+    INFO "CMD: ${sv_command}"
+    RUN_RESULT=`${sv_command}`
   elif [[ "${servicetype}" == "init.d" ]]; then
-    sv_command="${WITH_SUDO} /etc/init.d/${servicename} stop"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+    cmd="${WITH_SUDO} service ${servicename} stop"
+    INFO "CMD: ${sv_command}"
+    RUN_RESULT=`${sv_command}`
   elif [[ "${servicetype}" == "systemd" ]]; then
-    sv_command="${WITH_SUDO} systemctl stop ${servicename}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+    cmd="${WITH_SUDO} systemctl stop ${servicename}"
+    INFO "CMD: ${sv_command}"
+    RUN_RESULT=`${sv_command}`
   fi
-  info "${servicetype}, ${sv_command}"
-  info "Service stop info: $sv_result"
+  
+  DEBUG "Service stop info: $RUN_RESULT"
 }
 
 
-##main start###
+##########    MAIN START   ##########
+SCRIPTENTRY
 
-verbose=false
-force=0
-while getopts "h?vVfk:t:s:" opt; do
+while getopts "h?vVk:o:s:" opt; do
     case "$opt" in
     h|\?)
         usage
@@ -379,69 +441,60 @@ while getopts "h?vVfk:t:s:" opt; do
         exit 0
         ;;
     v)
-        verbose=true
+        VERBOSE=true
         ;;
     s)
-        servicename=$OPTARG
+        SERVICE_NAME=$OPTARG
         ;;
     k)
-        action=$OPTARG
+        ACTION=$OPTARG
         ;;
-    f)
-        force=1
-        ;;
-    t)  
+    o)  
         output_file=$OPTARG
         ;;
     esac
 done
 
-[ -z ${servicename} ] && usage && die "Server name must be set" $ERROR_UNKNOWN
+[ -z ${SERVICE_NAME} ] && usage && DIE "Server name must be set" $ERROR_UNKNOWN
+[ -z ${output_file} ] && STEVE_OUT=${output_file}
 
 
-readconfig "$STEVE_CONFIG""$servicename".ini
+readconfig "${STEVE_CONFIG}${servicename}.ini"
 
-echo "servicetype=${servicetype}"
 
-[ ! -z "$service_alias" ] && servicename="${service_alias}"
+[ ! -z "$service_alias" ] && SERVICE_NAME="${service_alias}"
+[ -z "$servicetype" ] && SERVICE_TYPE="supervisord"
 [ -z "$retry_time" ] && retry_time=5
 [ -z "$sleep_time" ] && sleep_time=5
 [ -z "$forcekill"  ] && forcekill=256
 [ -z "$forcekill9" ] && forcekill9=256
-[ -z "$servicetype" ] && servicetype="supervisord"
 
-if [ "$action" = "debug" ] ; then
-  echo "Debug command not available now."
+if [ "$ACTION" = "debug" ] ; then
+  DEBUG "Debug command not available now."
   exit 1
-elif [ "$action" = "start" ]; then
+elif [ "$ACTION" = "start" ]; then
     #check port, DIE if port is in use
     if [ ! -z "$use_port" ]; then
+
       for port in $(echo $use_port | tr ";" "\n"); do
         check_port "$port"
         if [ ! -z "$PID" ]; then
-          debug "PID ""$PID"
-          if [ $force -eq 0 ]; then
-            die "check port ${port} #{$PID} failed. The port is in used." "${ERROR_PORT_USED}"
-          fi
+          DIE "PORT ${port} is used by PID: $PID" "${ERROR_PORT_USED}"
         fi
       done
     fi
 
     if [ ! -z "$check_pid" ]; then
       check_pid "$check_pid"
-      if [ ! $PID -eq 0 ]; then
-        if [ $force -eq 0 ]; then
-          die "check pid failed." "${ERROR_PID_EXISTS}"
-        fi
+      if [ ! -z "$PID" ]; then
+        DIE "PidFile is used by PID: ${PID}." "${ERROR_PORT_USED}"
       fi
     fi
 
     if [ ! -z "$use_pname" ]; then
       check_pname "$use_pname"
       if [ ! -z "$PID" ]; then
-        if [ $force -eq 0 ]; then
-          die "Check process name failed." "${ERROR_PNAME_EXISTS}"
-        fi
+        DIE "Process name is existed with PID: ${PID}." "${ERROR_PNAME_EXISTS}"
       fi
     fi
 
@@ -449,14 +502,14 @@ elif [ "$action" = "start" ]; then
 
     service_check_code=$?
     if(( ${service_check_code} < 0 )); then
-      die "FATAL" ${service_check_code}
+      DIE "FATAL" ${service_check_code}
     fi
 
-    debug "===Starting...==="
+    INFO "===Starting...==="
 
     service_start
     
-    debug "Checking after started..."
+    INFO "Checking after started..."
 
     NEXT_WAIT_TIME=0
     COMMAND_STATUS=1
@@ -465,8 +518,8 @@ elif [ "$action" = "start" ]; then
     
       COMMAND_STATUS=0
 
-      debug "Sleeping... ${sleep_time}, Loop ${NEXT_WAIT_TIME}"
-      sleep $sleep_time
+      DEBUG "Sleeping... ${sleep_time}, Loop ${NEXT_WAIT_TIME}"
+      sleep "$sleep_time"
 
       service_check
       service_check_code=$?
@@ -478,10 +531,10 @@ elif [ "$action" = "start" ]; then
         for port in $(echo $use_port | tr ";" "\n"); do
           check_port "$port"
           if [ -z "$PID" ]; then
-            warning "check port ${port} failed."
+            WARNING "check port ${port} failed."
             COMMAND_STATUS=1
           else
-            success "Port ${port} started"
+            INFO "Port ${port} started"
           fi
         done
       fi
@@ -489,20 +542,20 @@ elif [ "$action" = "start" ]; then
       if [ ! -z "$check_pid" ]; then
         check_pid "$check_pid"
         if [ -z "$PID" ]; then
-            warning "check pid failed."
+            WARNING "check pid failed."
             COMMAND_STATUS=1
         else
-          success "Pid #${PID} is running"
+          INFO "Pid #${PID} is running"
         fi
       fi
 
       if [ ! -z "$use_pname" ]; then
         check_pname "$use_pname"
         if [ -z "$PID" ]; then
-            warning "check process name failed, no named '${use_pname}' running."
+            WARNING "check process name failed, no named '${use_pname}' running."
             COMMAND_STATUS=1
         else
-          success "process name ${use_pname} #${PID} is running"
+          INFO "process name ${use_pname} #${PID} is running"
         fi
       fi
 
@@ -510,53 +563,51 @@ elif [ "$action" = "start" ]; then
     done
 
     if [ $COMMAND_STATUS -eq 0 ]; then
-      success "===== OK. service '${servicename}' started. ====="
+      INFO "===== OK. service '${servicename}' started. ====="
     else
-      die "===== FATAL. started checked failed. Login to the server and check ====="
+      DIE "===== FATAL. started checked failed. Login to the server and check =====" ${ERROR_SV_NOTRUNNING}
     fi
 
 elif [ "$action" = "stop" ]; then
     if [ ! -z "$use_port" ]; then
-      debug "Checking port ${use_port}..."
+      INFO "Checking port ${use_port}..."
       for port in $(echo $use_port | tr ";" "\n"); do
         check_port "$port"
         if [ ! -z "$PID" ]; then
-          success "Checked: Port ${port} #{$PID} is running."
+          INFO "Checked: Port ${port} #{$PID} is running."
         fi
       done
     fi
 
     if [ ! -z "$check_pid" ]; then
-      debug "Checking pid"
+      INFO "Checking pid"
       check_pid "$check_pid"
       if [ ! -z "$PID" ]; then
-          info "check pid: pid ${use_pid} is running."
+          INFO "check pid: pid ${use_pid} is running."
       fi
     fi
 
     if [ ! -z "$use_pname" ]; then
-      debug "Checking pname..."
+      INFO "Checking pname..."
       check_pname "$use_pname"
       if [ ! -z "$PID" ]; then
-        info "Checked process: ${use_pname} is running."
+        INFO "Checked process: ${use_pname} is running."
       fi
     fi
 
-    debug "Checking service..."
+    INFO "Checking service..."
     service_prepare_check
 
-    debug "===Stoping...==="
+    INFO "===Stoping...==="
     sv_result=`service_stop`
     service_stop_code=$?
 
-    echo "${sv_result}"
     if(( ${service_stop_code} <  0 )); then
-      die "FATAL" ${service_stop}
+      DIE "FATAL" ${service_stop_code}
     fi
 
-    #info "$sv_result"
 
-    debug "Checking after stop..."
+    INFO "Checking after stop..."
 
     NEXT_WAIT_TIME=0
     COMMAND_STATUS=1
@@ -564,44 +615,44 @@ elif [ "$action" = "stop" ]; then
     until [ $COMMAND_STATUS -eq 0 -o $NEXT_WAIT_TIME -eq $retry_time ]; do
       COMMAND_STATUS=0
 
-      debug "Sleeping... ${sleep_time}, Loop ${NEXT_WAIT_TIME}"
+      INFO "Sleeping... ${sleep_time}, Loop ${NEXT_WAIT_TIME}"
       [ ${NEXT_WAIT_TIME} -eq 0 ] && sleep 2  #stop may be soon, only sleep 2 seconds when the first time
-      [ ! ${NEXT_WAIT_TIME} -eq 0 ] && sleep $sleep_time
+      [ ! ${NEXT_WAIT_TIME} -eq 0 ] && sleep "$sleep_time"
 
       service_check
-      service_stop_code=$?
+      local service_stop_code=$?
 
       if [[ ${service_stop_code} == ${SERVICE_STATE_NOT_RUNNING} ]]; then
-        warning "${servicename} is not running."
+        WARNING "${SERVICE_NAME} is not running."
       elif [[ ${service_stop_code} == ${SERVICE_STATE_RUNNING} ]]; then
-        warning "Supervisor process ${servicename} is still running."
+        WARNING "Service process ${service_stop_code} is still running."
         COMMAND_STATUS=1
       elif [[ ${service_stop_code} == ${SERVICE_STATE_STOPPING} ]]; then
-        warning "Supervisor process ${servicename} is still running."
+        WARNING "Service process ${service_stop_code} is still running."
       elif [[ ${service_stop_code} == ${SERVICE_STATE_FATAL} ]]; then
-        warning "The supervisor status is FATAL"
+        WARNING "The service status is FATAL"
       elif [[ ${service_stop_code} == ${SERVICE_STATE_EXITED} ]]; then
-        success "OK: The supervisor status is STOPPED|EXITED"
+        INFO "OK: The service status is STOPPED|EXITED"
       fi
 
       if [ ! -z "$use_port" ]; then
         for port in $(echo $use_port | tr ";" "\n"); do
           check_port "$port"
           if [ ! -z "$PID" ]; then
-              warning "Check port $port #${PID} is still running."
+              WARNING "Check port $port is still running with PID #${PID}"
               COMMAND_STATUS=1
 
               if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
-                warning "Use Kill TERM to stop the process #{$PID} on port $port"
-                kill -TERM $PID
+                WARNING "Use Kill TERM to stop the process #{$PID} who is using port $port"
+                ${WITH_SUDO} kill -TERM $PID
               fi
 
               if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
-                warning "Use Kill 9 to stop the process #${PID} on port $port"
-                kill -KILL $$PID
+                WARNING "Use Kill 9 to stop the process #${PID} who is using port $port"
+                ${WITH_SUDO} kill -KILL $PID
               fi
           else
-            success "Check port $port success."
+            INFO "Check port $port success, it is free."
           fi
         done
       fi
@@ -609,65 +660,62 @@ elif [ "$action" = "stop" ]; then
       if [ ! -z "$check_pid" ]; then
         check_pid "$check_pid"
         if [ ! -z "$PID" ]; then
-         warning "check pid #${PID} is still running."
+         WARNING "check pid #${PID} is still running."
          COMMAND_STATUS=1
 
          if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
-            warning "Use Kill TERM to stop the process $PID"
-            kill -TERM $PID
+            WARNING "Use Kill -TERM to stop the process #${PID}"
+            ${WITH_SUDO} kill -TERM $PID
           fi
 
           if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
-            warning "Use Kill 9 to stop the process $PID"
-            kill -KILL $PID
+            WARNING "Use Kill -KILL to stop the process #${PID}"
+            ${WITH_SUDO} kill -KILL $PID
           fi
         else
-          success "Check PID $check_pid success."
+          DEBUG "Check PID $check_pid success."
         fi
       fi
 
       if [ ! -z "$use_pname" ]; then
         check_pname "$use_pname"
         if [ ! -z "$PID" ]; then
-          warning "Check process name ${use_pname} ${PID} is still running."
+          WARNING "Check process name ${use_pname} ${PID} is still running."
           COMMAND_STATUS=1
 
           if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
-            warning "Use Kill TERM to stop the process $PID named ${use_pname}"
-            kill -TERM $PID
+            WARNING "Use Kill TERM to stop the process $PID named ${use_pname}"
+            ${WITH_SUDO} kill -TERM $PID
           fi
 
           if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
-            warning "Use Kill 9 to stop the process $PID named ${use_pname}"
-            kill -KILL $PID
+            WARNING "Use Kill 9 to stop the process $PID named ${use_pname}"
+            ${WITH_SUDO} kill -KILL $PID
           fi
         else
-          success "Check process name ${use_pname} success."
+          DEBUG "Check process name ${use_pname} success."
         fi
       fi
       let NEXT_WAIT_TIME=NEXT_WAIT_TIME+1
     done
 
     if [ $COMMAND_STATUS -eq 0 ]; then
-      success "=== The '${servicename}' has been stopped. ==="
+      INFO "=== The '${SERVICE_NAME}' has been stopped. ==="
     else
-      die "===== FATAL. ${servicename} is not stopped cleanly. Login to the server and check ====="
+      DIE "===== FATAL. ${SERVICE_NAME} is not stopped cleanly. Login to the server and check =====" ${ERROR_SV_ISRUNNING}
     fi
 elif [ "$action" = "restart" ]; then
-    command="${0} ${@}"
-    stop_command=${command/\-k restart/\-k stop}
-    start_command=${command/\-k restart/\-k start}
+    local cmd="${0} ${@}"
+    local stop_command=${cmd/\-k restart/\-k stop}
+    local start_command=${cmd/\-k restart/\-k start}
 
-    info "=== Step1 Stoping...==="
+    INFO "=== Step1 Stoping...==="
     set +e; $stop_command; set -e
 
-    info ""
-    info ""
-
-    info "=== Step2 Then Starting...==="
+    INFO "=== Step2 Then Starting...==="
     $start_command
 else
-  die "Unknow Action $action" $ERROR_UNKNOWN
+  DIE "Unknow Action $action" $ERROR_UNKNOWN
 fi
 
 
