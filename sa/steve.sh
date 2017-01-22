@@ -57,10 +57,17 @@ ERROR_PORT_USED=2
 ERROR_PID_EXISTS=3
 ERROR_PNAME_EXISTS=4
 
-ERROR_SV_NOTRUNNING=11
-ERROR_SV_NOTEXISTS=12
-ERROR_SV_ISRUNNING=13
-ERROR_SV_STARTFATAL=14
+ERROR_SV_NOTRUNNING=-11
+ERROR_SV_NOTEXISTS=-12
+ERROR_SV_ISRUNNING=-13
+ERROR_SV_STARTFATAL=-14
+
+SERVICE_STATE_NOT_EXIST=21
+SERVICE_STATE_NOT_RUNNING=22
+SERVICE_STATE_RUNNING=23
+SERVICE_STATE_EXITED=24
+SERVICE_STATE_FATAL=25
+SERVICE_STATE_STOPPING=26
 
 supervisorctl="supervisorctl"
 [ -f steve_profile ] && source steve_profile
@@ -94,7 +101,9 @@ done
 PRGDIR=`dirname "$PRG"`
 
 # Only set CATALINA_HOME if not already set
-[ -z "$STEVE_HOME" ] && STEVE_HOME=`cd "$PRGDIR" >/dev/null; pwd`
+[ -z "$STEVE_CONFIG" ] && STEVE_CONFIG="/etc/steve/"
+
+echo "STEVE_HOME", ${STEVE_HOME}
 
 # Copy STEVE_BASE from CATALINA_HOME if not already set
 [ -z "$STEVE_BASE" ] && STEVE_BASE="$STEVE_HOME"
@@ -107,20 +116,20 @@ PRGDIR=`dirname "$PRG"`
 
 [ -z "$WITH_SUDO" ] && WITH_SUDO=""
 
+[ -z "$LSOF_BIN"] && LSOF_BIN="lsof"
+
 usage()
 {
   cat <<EOF
 Usage:
 $0 [h?vVfk:s:]
 OPTIONS:
-   -s     Server name
+   -s     Service name
    -k     Action. start, stop, restart, debug
    -h|-?  Show this message
    -V     App Version
    -v     Verbose
    -f     Force run
-
-   
 
 Example:
     ./steve.sh [arguments] action
@@ -145,11 +154,14 @@ readconfig()
     done < "$configfile"
 }
 
-check_port() 
+function check_port() 
 {
   PID=
   port="${1}"
-  PID=`lsof -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'`
+  debug "${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'"
+
+  PID=`${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'`
+
   if [ -z $TMPPID ]; then
       debug "Port ${port} is free"
   else
@@ -211,15 +223,143 @@ function info()    { echo "INFO.   " "$1"; }
 function warning() { echo "WARNING." "$1"; }
 function success() { echo "SUCCESS." "$1"; }
 function debug()   { echo "DEBUG.  " "$1"; }
+function fatal()   { echo "FATAL.  " "$1"; }
 function cmd()     { echo "CMD.    " "$1"; }
 
 function check_sv_service()
 {
     if [[ $sv_result == *"supervisor.sock no such file"* ]]; then
-        die "supervisord is not running" ${ERROR_SV_NOTRUNNING}
+        fatal "supervisord is not running"
+        return ${ERROR_SV_NOTRUNNING}
     elif [[ $sv_result == *"no such processg"* ]]; then
-        die "supervisor process ${supervisor_name} is not exists" ${ERROR_SV_NOTEXISTS}
+        fatal "supervisor process ${supervisor_name} is not exists"
+        return ${ERROR_SV_NOTEXISTS}
     fi
+
+    if [[ $sv_result == *"RUNNING"* ]]; then
+        #if [ $force -eq 0 ]; then
+        info "supervisor process ${supervisor_name} is running" ${ERROR_SV_ISRUNNING}
+        #fi
+    elif [[ $sv_result == *"FATAL"* ]]; then
+        info "NOTICE: The previously status is FATAL"
+    elif [[ $sv_result == *"STOPPED"* ]]; then
+        info "The previously status is STOPPED"
+    elif [[ $sv_result == *"EXITED"* ]]; then
+        info "The previously status is EXITED"
+    fi
+
+    #"STARTING" "STOPPING"
+    if [[ $sv_result == *"RUNNING"* ]]; then
+        info "supervisor process ${supervisor_name} is running"
+    elif [[ $sv_result == *"FATAL"* ]]; then
+        info "NOTICE: The previously supervisor status is FATAL"
+    elif [[ $sv_result == *"STOPPED"* ]]; then
+        info "The previously supervisor status is STOPPED"
+    elif [[ $sv_result == *"EXITED"* ]]; then
+        info "The previously supervisor status is EXITED"
+    fi
+
+    return 0
+}
+
+function service_prepare_check() 
+{
+  if [[ $servicetype == "supervisord" ]]; then
+    sv_command="${WITH_SUDO} ${supervisorctl} status ${servicename}"
+    cmd "${sv_command}"
+    sv_result=`${sv_command}`
+
+    check_result=`check_sv_service`
+    check_result_code=$?
+
+    echo "${check_retulr}" 
+    return $check_result_code
+  elif [[ $servicetype == "init.d" ]]; then
+    sv_command="/etc/init.d/${servicename}"
+    if [[ ! -f ${sv_command} ]]; then
+        fatal "service does NOT exists" 
+        return ${ERROR_SV_NOTEXISTS}
+    fi
+  elif [[ $servicetype == "systemd" ]]; then
+    sv_command="/etc/systemd/system/${servicename}.service"
+    if [[ ! -f ${sv_command} ]]; then
+        fatal "service does NOT exists" 
+        return ${ERROR_SV_NOTEXISTS}
+    fi
+  fi
+  debug "${sv_command}"
+  debug "${sv_result}"
+
+  return 0
+}
+
+function service_start()
+{
+  echo "servicetype=${servicetype}"
+  if [[ $servicetype == "supervisord" ]]; then
+    sv_command="${WITH_SUDO} ${supervisorctl} start ${servicename}"
+    cmd "${sv_command}"
+    sv_result=`${sv_command}`
+  elif [[ $servicetype == "init.d" ]]; then
+    sv_command="${WITH_SUDO} /etc/init.d/${servicename} start"
+    cmd "${sv_command}"
+    sv_result=`${sv_command}`
+  elif [[ $servicetype == "systemd" ]]; then
+    sv_command="${WITH_SUDO} systemctl start ${servicename}"
+    cmd "${sv_command}"
+    sv_result=`${sv_command}`
+  fi
+  info "${sv_command}"
+  info "Service start info: $sv_result"
+}
+
+function service_check() {
+  if [[ $sv_result == *"already started"* ]]; then
+    debug "OK. Supervisor process ${servicename} is already started"
+    return ${SERVICE_STATE_RUNNING}
+  elif [[ $sv_result == *"started"* ]]; then
+    debug "OK. Supervisor process ${servicename} started"
+    return ${SERVICE_STATE_RUNNING}
+  elif [[ $sv_result == *"ERROR"* ]]; then
+    debug "FATAL: The supervisor status is FATAL: ${sv_result}" 
+    return ${SERVICE_STATE_FATAL}
+  fi
+
+  if [[ $sv_result == *"RUNNING"* ]]; then
+      debug "OK. Supervisor process ${servicename} is running"
+      return ${SERVICE_STATE_RUNNING}
+  elif [[ $sv_result == *"FATAL"* ]]; then
+      debug "FATAL: The supervisor status is FATAL" 
+      return ${SERVICE_STATE_FATAL}
+  elif [[ $sv_result == *"STOPPED"* ]]; then
+      debug "FATAL: The supervisor status is STOPPED" 
+      return ${SERVICE_STATE_EXITED}
+  elif [[ $sv_result == *"EXITED"* ]]; then
+      debug "FATAL: The supervisor status is EXITED" 
+      return ${SERVICE_STATE_EXITED}
+  fi
+  return 0
+}
+
+function service_stop()
+{
+  if [[ "${servicetype}" == "supervisord" ]]; then
+    sv_command="${WITH_SUDO} ${supervisorctl} stop ${supervisor_name}"
+    cmd "${sv_command}"
+    sv_result=`${sv_command}`
+
+    info "Supervisorctl return: $sv_result"
+  elif [[ "${servicetype}" == "init.d" ]]; then
+    sv_command="${WITH_SUDO} /etc/init.d/${servicename} stop"
+    cmd "${sv_command}"
+    sv_result=`${sv_command}`
+  elif [[ "${servicetype}" == "systemd" ]]; then
+    sv_command="${WITH_SUDO} systemctl stop ${servicename}"
+    cmd "${sv_command}"
+    sv_result=`${sv_command}`
+  fi
+  info "${servicetype}, ${sv_command}"
+  info "Service stop info: $sv_result"
 }
 
 
@@ -241,7 +381,7 @@ while getopts "h?vVfk:t:s:" opt; do
         verbose=true
         ;;
     s)
-        servername=$OPTARG
+        servicename=$OPTARG
         ;;
     k)
         action=$OPTARG
@@ -255,15 +395,20 @@ while getopts "h?vVfk:t:s:" opt; do
     esac
 done
 
-[ -z ${servername} ] && usage && die "Server name must be set" $ERROR_UNKNOWN
+[ -z ${servicename} ] && usage && die "Server name must be set" $ERROR_UNKNOWN
 
-readconfig "$STEVE_CONFIG""$servername".conf
 
-[ -z "$supervisor_name" ] && supervisor_name="${servername}"
+
+readconfig "$STEVE_CONFIG""$servicename".ini
+
+echo "servicetype=${servicetype}"
+
+[ ! -z "$service_alias" ] && servicename="${service_alias}"
 [ -z "$retry_time" ] && retry_time=5
 [ -z "$sleep_time" ] && sleep_time=5
 [ -z "$forcekill"  ] && forcekill=256
 [ -z "$forcekill9" ] && forcekill9=256
+[ -z "$servicetype" ] && servicetype="supervisord"
 
 if [ "$action" = "debug" ] ; then
   echo "Debug command not available now."
@@ -300,30 +445,17 @@ elif [ "$action" = "start" ]; then
       fi
     fi
 
-    sv_command="${WITH_SUDO} ${supervisorctl} status ${supervisor_name}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+    service_prepare_check
 
-    check_sv_service
-    if [[ $sv_result == *"RUNNING"* ]]; then
-        if [ $force -eq 0 ]; then
-            die "supervisor process ${supervisor_name} is running" ${ERROR_SV_ISRUNNING}
-        fi
-    elif [[ $sv_result == *"FATAL"* ]]; then
-        info "NOTICE: The previously status is FATAL"
-    elif [[ $sv_result == *"STOPPED"* ]]; then
-        info "The previously status is STOPPED"
-    elif [[ $sv_result == *"EXITED"* ]]; then
-        info "The previously status is EXITED"
+    service_check_code=$?
+    if(( ${service_check_code} < 0 )); then
+      die "FATAL" ${service_check_code}
     fi
 
     debug "===Starting...==="
-    sv_command="${WITH_SUDO} ${supervisorctl} start ${supervisor_name}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
 
-    info "Supervisorctl return: $sv_result"
-
+    service_start
+    
     debug "Checking after started..."
 
     NEXT_WAIT_TIME=0
@@ -336,24 +468,11 @@ elif [ "$action" = "start" ]; then
       debug "Sleeping... ${sleep_time}, Loop ${NEXT_WAIT_TIME}"
       sleep $sleep_time
 
-      if [[ $sv_result == *"already started"* ]]; then
-        debug "OK. Supervisor process ${supervisor_name} is already started"
-      elif [[ $sv_result == *"started"* ]]; then
-        debug "OK. Supervisor process ${supervisor_name} started"
-      elif [[ $sv_result == *"ERROR"* ]]; then
-        die "FATAL: The supervisor status is FATAL: ${sv_result}" ${ERROR_SV_STARTFATAL}
+      service_check
+      service_check_code=$?
+      if(( ${service_check_code} < 0 )); then
+        die "FATAL" ${service_check_code}
       fi
-
-      if [[ $sv_result == *"RUNNING"* ]]; then
-          debug "OK. Supervisor process ${supervisor_name} is running"
-      elif [[ $sv_result == *"FATAL"* ]]; then
-          die "FATAL: The supervisor status is FATAL" ${ERROR_SV_STARTFATAL}
-      elif [[ $sv_result == *"STOPPED"* ]]; then
-          die "FATAL: The supervisor status is STOPPED" ${ERROR_SV_STARTFATAL}
-      elif [[ $sv_result == *"EXITED"* ]]; then
-          die "FATAL: The supervisor status is EXITED" ${ERROR_SV_STARTFATAL}
-      fi
-
 
       if [ ! -z "$use_port" ]; then
         for port in $(echo $use_port | tr ";" "\n"); do
@@ -391,7 +510,7 @@ elif [ "$action" = "start" ]; then
     done
 
     if [ $COMMAND_STATUS -eq 0 ]; then
-      success "===== OK. service '${servername}' started. ====="
+      success "===== OK. service '${servicename}' started. ====="
     else
       die "===== FATAL. started checked failed. Login to the server and check ====="
     fi
@@ -423,25 +542,17 @@ elif [ "$action" = "stop" ]; then
       fi
     fi
 
-    debug "Checking supervisor..."
-    check_sv_service
-    #"STARTING" "STOPPING"
-    if [[ $sv_result == *"RUNNING"* ]]; then
-        info "supervisor process ${supervisor_name} is running"
-    elif [[ $sv_result == *"FATAL"* ]]; then
-        info "NOTICE: The previously supervisor status is FATAL"
-    elif [[ $sv_result == *"STOPPED"* ]]; then
-        info "The previously supervisor status is STOPPED"
-    elif [[ $sv_result == *"EXITED"* ]]; then
-        info "The previously supervisor status is EXITED"
-    fi
+    debug "Checking service..."
+    service_prepare_check
 
     debug "===Stoping...==="
-    sv_command="${WITH_SUDO} ${supervisorctl} stop ${supervisor_name}"
-    cmd "${sv_command}"
-    sv_result=`${sv_command}`
+    sv_result=`service_stop`
+    service_stop_code=$?
 
-    info "Supervisorctl return: $sv_result"
+    echo "${sv_result}"
+    if(( ${service_stop_code} <  0 )); then
+      die "FATAL" ${service_stop}
+    fi
 
     #info "$sv_result"
 
@@ -457,21 +568,21 @@ elif [ "$action" = "stop" ]; then
       [ ${NEXT_WAIT_TIME} -eq 0 ] && sleep 2  #stop may be soon, only sleep 2 seconds when the first time
       [ ! ${NEXT_WAIT_TIME} -eq 0 ] && sleep $sleep_time
 
-      if [[ $sv_result == *"ERROR (not running)"* ]]; then
-          warning "${supervisor_name} is not running."
-      elif [[ $sv_result == *"RUNNING"* ]]; then
-          warning "Supervisor process ${supervisor_name} is still running."
-          COMMAND_STATUS=1
-      elif [[ $sv_result == *"STOPPING"* ]]; then
-          warning "Supervisor process ${supervisor_name} is still running."
-      elif [[ $sv_result == *"FATAL"* ]]; then
-          warning "The supervisor status is FATAL"
-      elif [[ $sv_result == *"STOPPED"* ]]; then
-          success "OK: The supervisor status is STOPPED"
-      elif [[ $sv_result == *"EXITED"* ]]; then
-          success "OK: The supervisor status is EXITED"
-      fi
+      service_check
+      service_stop_code=$?
 
+      if [[ ${service_stop_code} == ${SERVICE_STATE_NOT_RUNNING} ]]; then
+        warning "${servicename} is not running."
+      elif [[ ${service_stop_code} == ${SERVICE_STATE_RUNNING} ]]; then
+        warning "Supervisor process ${servicename} is still running."
+        COMMAND_STATUS=1
+      elif [[ ${service_stop_code} == ${SERVICE_STATE_STOPPING} ]]; then
+        warning "Supervisor process ${servicename} is still running."
+      elif [[ ${service_stop_code} == ${SERVICE_STATE_FATAL} ]]; then
+        warning "The supervisor status is FATAL"
+      elif [[ ${service_stop_code} == ${SERVICE_STATE_EXITED} ]]; then
+        success "OK: The supervisor status is STOPPED|EXITED"
+      fi
 
       if [ ! -z "$use_port" ]; then
         for port in $(echo $use_port | tr ";" "\n"); do
@@ -538,9 +649,9 @@ elif [ "$action" = "stop" ]; then
     done
 
     if [ $COMMAND_STATUS -eq 0 ]; then
-      success "=== The '${servername}' has been stopped. ==="
+      success "=== The '${servicename}' has been stopped. ==="
     else
-      die "===== FATAL. ${servername} is not stopped cleanly. Login to the server and check ====="
+      die "===== FATAL. ${servicename} is not stopped cleanly. Login to the server and check ====="
     fi
 elif [ "$action" = "restart" ]; then
     command="${0} ${@}"
@@ -558,5 +669,6 @@ elif [ "$action" = "restart" ]; then
 else
   die "Unknow Action $action" $ERROR_UNKNOWN
 fi
+
 
 
