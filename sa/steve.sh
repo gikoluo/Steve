@@ -50,6 +50,7 @@ COMMAND_STATUS=1
 #   JRE_HOME        Must point at your Java Runtime installation.
 #                   Defaults to JAVA_HOME if empty. If JRE_HOME and JAVA_HOME
 #                   are both set, JRE_HOME is used.
+#   LSOF_BIN        lsof bin
 # -----------------------------------------------------------------------------
 
 ERROR_UNKNOWN=1
@@ -108,7 +109,7 @@ echo "STEVE_HOME", ${STEVE_HOME}
 # Copy STEVE_BASE from CATALINA_HOME if not already set
 [ -z "$STEVE_BASE" ] && STEVE_BASE="$STEVE_HOME"
 
-[ -z "$STEVE_CONFIG" ] && STEVE_CONFIG="$STEVE_BASE"/config/
+[ -z "$STEVE_CONFIG" ] && STEVE_CONFIG="/etc/steve/"
 
 [ -z "$STEVE_OUT" ] && STEVE_OUT="$STEVE_BASE"/logs/steve.out
 
@@ -396,7 +397,6 @@ while getopts "h?vVfk:t:s:" opt; do
 done
 
 [ -z ${servicename} ] && usage && die "Server name must be set" $ERROR_UNKNOWN
-
 
 
 readconfig "$STEVE_CONFIG""$servicename".ini
