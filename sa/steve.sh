@@ -217,7 +217,7 @@ function readconfig()
     do
       if [[ "$rhs" != "" ]]; then
         if [[ ! ( "$lhs" = "["* || "$lhs" = "#"* ) ]]; then
-            "$lhs"="$rhs"
+            export "$lhs"="$rhs"
         fi
       fi
     done < "$configfile"
@@ -361,7 +361,7 @@ function service_start()
     INFO "CMD: ${cmd}"
     RUN_RESULT=`${cmd}`
   fi
-  info "Service start info: $RUN_RESULT"
+  INFO "Service start info: $RUN_RESULT"
 }
 
 function service_check_supervisor() {
@@ -391,7 +391,7 @@ function service_check_supervisor() {
 
 function service_check() {
   if [[ $SERVICE_TYPE == "supervisord" ]]; then
-    return service_check_supervisor
+    return `service_check_supervisor`
   elif [[ $servicetype == "init.d" ]]; then
     DEBUG "";
   elif [[ $servicetype == "systemd" ]]; then
@@ -566,7 +566,7 @@ elif [ "$ACTION" = "start" ]; then
       DIE "===== FATAL. started checked failed. Login to the server and check =====" ${ERROR_SV_NOTRUNNING}
     fi
 
-elif [ "$action" = "stop" ]; then
+elif [ "$ACTION" = "stop" ]; then
     if [ ! -z "$use_port" ]; then
       INFO "Checking port ${use_port}..."
       for port in $(echo $use_port | tr ";" "\n"); do
@@ -618,7 +618,7 @@ elif [ "$action" = "stop" ]; then
       [ ! ${NEXT_WAIT_TIME} -eq 0 ] && sleep "$sleep_time"
 
       service_check
-      local service_stop_code=$?
+      service_stop_code=$?
 
       if [[ ${service_stop_code} == ${SERVICE_STATE_NOT_RUNNING} ]]; then
         WARNING "${SERVICE_NAME} is not running."
@@ -702,10 +702,10 @@ elif [ "$action" = "stop" ]; then
     else
       DIE "===== FATAL. ${SERVICE_NAME} is not stopped cleanly. Login to the server and check =====" ${ERROR_SV_ISRUNNING}
     fi
-elif [ "$action" = "restart" ]; then
-    local cmd="${0} ${@}"
-    local stop_command=${cmd/\-k restart/\-k stop}
-    local start_command=${cmd/\-k restart/\-k start}
+elif [ "$ACTION" = "restart" ]; then
+    cmd="${0} ${@}"
+    stop_command=${cmd/\-k restart/\-k stop}
+    start_command=${cmd/\-k restart/\-k start}
 
     INFO "=== Step1 Stoping...==="
     set +e; $stop_command; set -e
@@ -713,7 +713,7 @@ elif [ "$action" = "restart" ]; then
     INFO "=== Step2 Then Starting...==="
     $start_command
 else
-  DIE "Unknow Action $action" $ERROR_UNKNOWN
+  DIE "Unknow Action $ACTION" $ERROR_UNKNOWN
 fi
 
 
