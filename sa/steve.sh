@@ -80,6 +80,7 @@ SERVICE_STATE_UNKNOWN=29
 
 ##########    Globals   ##########
 PID=
+PID_STR=
 SERVICE_TYPE=
 SERVICE_NAME=
 
@@ -116,6 +117,8 @@ data_format="+%d/%m/%Y %H:%M:%S"
 function log_time() {
   echo `date "${data_format}"`
 }
+function join { local IFS="$1"; shift; echo "$*"; }
+
 function SCRIPTENTRY(){
   local msg="$1"
   local timeAndDate=`log_time`
@@ -232,7 +235,7 @@ function check_port()
   INFO "CMD: ${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'"
 
   PID=`${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'`
-
+  PID_STR=$(join , ${PID[@]})
   if [ -z $PID ]; then
       INFO "Port ${port} is free"
   else
@@ -250,6 +253,7 @@ function check_pid()
       INFO "Existed PID file found during start."
       if [ -r "$pidfile" ]; then
         PID=`cat "$pidfile"`
+        PID_STR=$(join , ${PID[@]})
         ps -p $PID >/dev/null 2>&1
         if [ $? -eq 0 ] ; then
           DEBUG "Server appears to still be running with PID $PID."
@@ -271,11 +275,12 @@ function check_pname()
   PID=
   local pname=${1}
   PID=`ps aux | grep "${pname}" | grep -v "grep" |awk '{print $2}'`
+  PID_STR=$(join , ${PID[@]})
 
   if [ ! -z "$PID" ]; then
-      DEBUG "Process named ${pname} #{$PID} exists"
+    DEBUG "Process named ${pname} #${PID_STR} exists"
   else
-      DEBUG "Process named ${pname} does NOT exists"
+    DEBUG "Process named ${pname} does NOT exists"
   fi
   return
 }
@@ -478,7 +483,7 @@ elif [ "$ACTION" = "start" ]; then
       for port in $(echo $use_port | tr ";" "\n"); do
         check_port "$port"
         if [ ! -z "$PID" ]; then
-          DIE "PORT ${port} is used by PID: $PID" "${ERROR_PORT_USED}"
+          DIE "PORT ${port} is used by PID: $PID_STR" "${ERROR_PORT_USED}"
         fi
       done
     fi
@@ -486,14 +491,14 @@ elif [ "$ACTION" = "start" ]; then
     if [ ! -z "$check_pid" ]; then
       check_pid "$check_pid"
       if [ ! -z "$PID" ]; then
-        DIE "PidFile is used by PID: ${PID}." "${ERROR_PORT_USED}"
+        DIE "PidFile is used by PID: ${PID_STR}." "${ERROR_PORT_USED}"
       fi
     fi
 
     if [ ! -z "$use_pname" ]; then
       check_pname "$use_pname"
       if [ ! -z "$PID" ]; then
-        DIE "Process name is existed with PID: ${PID}." "${ERROR_PNAME_EXISTS}"
+        DIE "Process name is existed with PID: ${PID_STR}." "${ERROR_PNAME_EXISTS}"
       fi
     fi
 
@@ -544,7 +549,7 @@ elif [ "$ACTION" = "start" ]; then
             WARNING "check pid failed."
             COMMAND_STATUS=1
         else
-          INFO "Pid #${PID} is running"
+          INFO "Pid #${PID_STR} is running"
         fi
       fi
 
@@ -554,7 +559,7 @@ elif [ "$ACTION" = "start" ]; then
             WARNING "check process name failed, no named '${use_pname}' running."
             COMMAND_STATUS=1
         else
-          INFO "Process name ${use_pname} #${PID} is running"
+          INFO "Process name ${use_pname} #${PID_STR} is running"
         fi
       fi
 
@@ -573,7 +578,7 @@ elif [ "$ACTION" = "stop" ]; then
       for port in $(echo $use_port | tr ";" "\n"); do
         check_port "$port"
         if [ ! -z "$PID" ]; then
-          INFO "Checked: Port ${port} #{$PID} is running."
+          INFO "Checked: Port ${port} #{$PID_STR} is running."
         fi
       done
     fi
@@ -638,16 +643,16 @@ elif [ "$ACTION" = "stop" ]; then
         for port in $(echo $use_port | tr ";" "\n"); do
           check_port "$port"
           if [ ! -z "$PID" ]; then
-              WARNING "Check port $port is still running with PID #${PID}"
+              WARNING "Check port $port is still running with PID #${PID_STR}"
               COMMAND_STATUS=1
 
               if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
-                WARNING "Use Kill TERM to stop the process #{$PID} who is using port $port"
+                WARNING "Use Kill TERM to stop the process #{$PID_STR} who is using port $port"
                 ${WITH_SUDO} kill -TERM $PID
               fi
 
               if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
-                WARNING "Use Kill 9 to stop the process #${PID} who is using port $port"
+                WARNING "Use Kill 9 to stop the process #${PID_STR} who is using port $port"
                 ${WITH_SUDO} kill -KILL $PID
               fi
           else
@@ -663,12 +668,12 @@ elif [ "$ACTION" = "stop" ]; then
          COMMAND_STATUS=1
 
          if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
-            WARNING "Use Kill -TERM to stop the process #${PID}"
+            WARNING "Use Kill -TERM to stop the process #${PID_STR}"
             ${WITH_SUDO} kill -TERM $PID
           fi
 
           if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
-            WARNING "Use Kill -KILL to stop the process #${PID}"
+            WARNING "Use Kill -KILL to stop the process #${PID_STR}"
             ${WITH_SUDO} kill -KILL $PID
           fi
         else
@@ -679,16 +684,16 @@ elif [ "$ACTION" = "stop" ]; then
       if [ ! -z "$use_pname" ]; then
         check_pname "$use_pname"
         if [ ! -z "$PID" ]; then
-          WARNING "Check process name ${use_pname} ${PID} is still running."
+          WARNING "Check process name ${use_pname} ${PID_STR} is still running."
           COMMAND_STATUS=1
 
           if [ $NEXT_WAIT_TIME -ge $forcekill ]; then
-            WARNING "Use Kill TERM to stop the process $PID named ${use_pname}"
+            WARNING "Use Kill TERM to stop the process $PID_STR named ${use_pname}"
             ${WITH_SUDO} kill -TERM $PID
           fi
 
           if [ $NEXT_WAIT_TIME -ge $forcekill9 ]; then
-            WARNING "Use Kill 9 to stop the process $PID named ${use_pname}"
+            WARNING "Use Kill 9 to stop the process $PID_STR named ${use_pname}"
             ${WITH_SUDO} kill -KILL $PID
           fi
         else
