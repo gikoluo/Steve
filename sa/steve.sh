@@ -56,7 +56,7 @@
 
 
 ##########    Constants   ##########
-STEVE_VERSION="0.8"
+STEVE_VERSION="0.8.1"
 
 ERROR_UNKNOWN=1
 ERROR_PORT_USED=2
@@ -106,74 +106,72 @@ STEVE_ENV="${STEVE_CONFIG}/setenv.sh"
 ##########    Libraries    ##########
 
 ####################    logger    ###################
-### this file is copy from http://www.cubicrace.com/2016/03/efficient-logging-mechnism-in-shell.html ###
+### This file is copy and modified
+### from http://www.cubicrace.com/2016/03/efficient-logging-mechnism-in-shell.html ###
 SCRIPT_LOG="${STEVE_OUT}"
+cfn="${FUNCNAME[1]}"
+script_name=`basename "$0"`
+script_name="${script_name%.*}"
+data_format=" +${data_format}"
+function log_time() {
+  echo `date ${data_format}`
+}
 function SCRIPTENTRY(){
- timeAndDate=`date`
- script_name=`basename "$0"`
- script_name="${script_name%.*}"
- echo "[$timeAndDate] [DEBUG]  > $script_name $FUNCNAME" >> $SCRIPT_LOG
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [DEBUG]  > $script_name $FUNCNAME" >> $SCRIPT_LOG
 }
 
 function SCRIPTEXIT(){
- script_name=`basename "$0"`
- script_name="${script_name%.*}"
- echo "[$timeAndDate] [DEBUG]  < $script_name $FUNCNAME" >> $SCRIPT_LOG
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [DEBUG]  < $script_name $FUNCNAME" >> $SCRIPT_LOG
 }
 
 function ENTRY(){
- local cfn="${FUNCNAME[1]}"
- timeAndDate=`date`
- echo "[$timeAndDate] [DEBUG]  > $cfn $FUNCNAME" >> $SCRIPT_LOG
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [DEBUG]  > $cfn $FUNCNAME" >> $SCRIPT_LOG
 }
 
 function EXIT(){
- local cfn="${FUNCNAME[1]}"
- timeAndDate=`date`
- echo "[$timeAndDate] [DEBUG]  < $cfn $FUNCNAME" >> $SCRIPT_LOG
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [DEBUG]  < $cfn $FUNCNAME" >> $SCRIPT_LOG
 }
 
 
 function INFO(){
- local function_name="${FUNCNAME[1]}"
-    local msg="$1"
-    timeAndDate=`date`
-    echo "[$timeAndDate] [INFO]  $msg" >> $SCRIPT_LOG
+  local msg="$1"
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [INFO]  $msg" >> $SCRIPT_LOG
 }
 
 
 function DEBUG(){
- local function_name="${FUNCNAME[1]}"
-    local msg="$1"
-    timeAndDate=`date`
- echo "[$timeAndDate] [DEBUG]  $msg" >> $SCRIPT_LOG
+  local msg="$1"
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [DEBUG]  $msg" >> $SCRIPT_LOG
 }
 
 function ERROR(){
- local function_name="${FUNCNAME[1]}"
-    local msg="$1"
-    timeAndDate=`date`
-    echo "[$timeAndDate] [ERROR]  $msg" >> $SCRIPT_LOG
+  local msg="$1"
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [ERROR]  $msg" >> $SCRIPT_LOG
 }
 ####################    logger end    ###################
 
 function WARNING(){
- local function_name="${FUNCNAME[1]}"
-    local msg="$1"
-    timeAndDate=`date`
-    echo "[$timeAndDate] [WARNING]  $msg" >> $SCRIPT_LOG
+  local msg="$1"
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [WARNING]  $msg" >> $SCRIPT_LOG
 }
 
 function FATAL(){
- local function_name="${FUNCNAME[1]}"
-    local msg="$1"
-    timeAndDate=`date`
-    echo "[$timeAndDate] [FATAL]  $msg" >> $SCRIPT_LOG
+  local msg="$1"
+  local timeAndDate=`log_time`
+  echo "[$timeAndDate] [FATAL]  $msg" >> $SCRIPT_LOG
 }
 
 function DIE() {
   FATAL "$1";
-  local errcode=1
+  local errcode=$ERROR_UNKNOWN
   if [ ! -z "$2" ]; then
     errcode=$2
   fi
@@ -219,7 +217,7 @@ function readconfig()
     do
       if [[ "$rhs" != "" ]]; then
         if [[ ! ( "$lhs" = "["* || "$lhs" = "#"* ) ]]; then
-            export "$lhs"="$rhs"
+            "$lhs"="$rhs"
         fi
       fi
     done < "$configfile"
@@ -368,13 +366,13 @@ function service_start()
 
 function service_check_supervisor() {
   if [[ $RUN_RESULT == *"already started"* ]]; then
-    INFO "OK. Supervisor process ${servicename} is already started"
+    INFO "OK. Supervisor process ${SERVICE_NAME} is already started"
     return ${SERVICE_STATE_RUNNING}
   elif [[ $RUN_RESULT == *"RUNNING"* ]]; then
-      INFO "OK. Supervisor process ${servicename} is running"
+      INFO "OK. Supervisor process ${SERVICE_NAME} is running"
       return ${SERVICE_STATE_RUNNING}
   elif [[ $RUN_RESULT == *"started"* ]]; then
-    INFO "OK. Supervisor process ${servicename} started"
+    INFO "OK. Supervisor process ${SERVICE_NAME} started"
     return ${SERVICE_STATE_RUNNING}
   elif [[ $RUN_RESULT == *"ERROR"* ]]; then
     INFO "FATAL: The supervisor status is FATAL: ${RUN_RESULT}" 
@@ -414,11 +412,11 @@ function service_stop()
     INFO "CMD: ${sv_command}"
     RUN_RESULT=`${sv_command}`
   elif [[ "${servicetype}" == "init.d" ]]; then
-    cmd="${WITH_SUDO} service ${servicename} stop"
+    cmd="${WITH_SUDO} service ${SERVICE_NAME} stop"
     INFO "CMD: ${sv_command}"
     RUN_RESULT=`${sv_command}`
   elif [[ "${servicetype}" == "systemd" ]]; then
-    cmd="${WITH_SUDO} systemctl stop ${servicename}"
+    cmd="${WITH_SUDO} systemctl stop ${SERVICE_NAME}"
     INFO "CMD: ${sv_command}"
     RUN_RESULT=`${sv_command}`
   fi
@@ -458,16 +456,16 @@ done
 [ -z ${SERVICE_NAME} ] && usage && DIE "Server name must be set" $ERROR_UNKNOWN
 [ -z ${output_file} ] && STEVE_OUT=${output_file}
 
-
-readconfig "${STEVE_CONFIG}${servicename}.ini"
+readconfig "${STEVE_CONFIG}${SERVICE_NAME}.ini"
 
 
 [ ! -z "$service_alias" ] && SERVICE_NAME="${service_alias}"
-[ -z "$servicetype" ] && SERVICE_TYPE="supervisord"
-[ -z "$retry_time" ] && retry_time=5
-[ -z "$sleep_time" ] && sleep_time=5
-[ -z "$forcekill"  ] && forcekill=256
-[ -z "$forcekill9" ] && forcekill9=256
+#[ -z "$servicetype" ] && SERVICE_TYPE="supervisord"
+SERVICE_TYPE=${servicetype-supervisord}
+retry_time=${retry_time-5}
+sleep_time=${sleep_time-5}
+forcekill=${forcekill-256}
+forcekill9=${forcekill9-256}
 
 if [ "$ACTION" = "debug" ] ; then
   DEBUG "Debug command not available now."
@@ -555,7 +553,7 @@ elif [ "$ACTION" = "start" ]; then
             WARNING "check process name failed, no named '${use_pname}' running."
             COMMAND_STATUS=1
         else
-          INFO "process name ${use_pname} #${PID} is running"
+          INFO "Process name ${use_pname} #${PID} is running"
         fi
       fi
 
@@ -563,7 +561,7 @@ elif [ "$ACTION" = "start" ]; then
     done
 
     if [ $COMMAND_STATUS -eq 0 ]; then
-      INFO "===== OK. service '${servicename}' started. ====="
+      INFO "===== OK. service '${SERVICE_NAME}' started. ====="
     else
       DIE "===== FATAL. started checked failed. Login to the server and check =====" ${ERROR_SV_NOTRUNNING}
     fi
