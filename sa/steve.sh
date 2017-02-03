@@ -112,9 +112,9 @@ SCRIPT_LOG="${STEVE_OUT}"
 cfn="${FUNCNAME[1]}"
 script_name=`basename "$0"`
 script_name="${script_name%.*}"
-data_format=" +${data_format}"
+data_format="+%d/%m/%Y %H:%M:%S"
 function log_time() {
-  echo `date ${data_format}`
+  echo `date "${data_format}"`
 }
 function SCRIPTENTRY(){
   local msg="$1"
