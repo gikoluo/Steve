@@ -117,8 +117,9 @@ function log_time() {
   echo `date ${data_format}`
 }
 function SCRIPTENTRY(){
+  local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG]  > $script_name $FUNCNAME" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [DEBUG]  > $script_name $FUNCNAME $msg" >> $SCRIPT_LOG
 }
 
 function SCRIPTEXIT(){
@@ -426,7 +427,7 @@ function service_stop()
 
 
 ##########    MAIN START   ##########
-SCRIPTENTRY
+SCRIPTENTRY "$@"
 
 while getopts "h?vVk:o:s:" opt; do
     case "$opt" in
