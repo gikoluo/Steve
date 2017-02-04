@@ -414,17 +414,17 @@ function service_stop()
   DEBUG "${SERVICE_TYPE} stop"
 
   if [[ "${SERVICE_TYPE}" == "supervisord" ]]; then
-    cmd="${WITH_SUDO} ${supervisorctl} stop ${supervisor_name}"
-    INFO "CMD: ${sv_command}"
-    RUN_RESULT=`${sv_command}`
+    cmd="${WITH_SUDO} ${SUPERVISORCTL_BIN} stop ${supervisor_name}"
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
   elif [[ "${servicetype}" == "init.d" ]]; then
     cmd="${WITH_SUDO} service ${SERVICE_NAME} stop"
-    INFO "CMD: ${sv_command}"
-    RUN_RESULT=`${sv_command}`
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
   elif [[ "${servicetype}" == "systemd" ]]; then
     cmd="${WITH_SUDO} systemctl stop ${SERVICE_NAME}"
-    INFO "CMD: ${sv_command}"
-    RUN_RESULT=`${sv_command}`
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
   fi
   
   DEBUG "Service stop info: $RUN_RESULT"
