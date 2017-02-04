@@ -113,7 +113,7 @@ SCRIPT_LOG="${STEVE_OUT}"
 cfn="${FUNCNAME[1]}"
 script_name=`basename "$0"`
 script_name="${script_name%.*}"
-date_format="+%d/%m/%Y %H:%M:%S"
+date_format="+%Y-%m-%dT%H:%M:%S%z"
 function log_time() {
   echo `date "${date_format}"`
 }
