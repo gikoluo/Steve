@@ -122,55 +122,55 @@ function join { local IFS="$1"; shift; echo "$*"; }
 function SCRIPTENTRY(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG]  > $script_name $FUNCNAME $msg" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  > $script_name $FUNCNAME $msg" | tee -a $SCRIPT_LOG
 }
 
 function SCRIPTEXIT(){
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG]  < $script_name $FUNCNAME" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}] < $script_name $FUNCNAME" |tee -a $SCRIPT_LOG
 }
 
 function ENTRY(){
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG]  > $cfn $FUNCNAME" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  > $cfn $FUNCNAME" |tee -a $SCRIPT_LOG
 }
 
 function EXIT(){
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG]  < $cfn $FUNCNAME" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  < $cfn $FUNCNAME" |tee -a $SCRIPT_LOG
 }
 
 
 function INFO(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [INFO]  $msg" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [INFO] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
 }
 
 
 function DEBUG(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG]  $msg" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
 }
 
 function ERROR(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [ERROR]  $msg" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [ERROR] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
 }
 ####################    logger end    ###################
 
 function WARNING(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [WARNING]  $msg" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [WARNING] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
 }
 
 function FATAL(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [FATAL]  $msg" >> $SCRIPT_LOG
+  echo "[$timeAndDate] [FATAL] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
 }
 
 function DIE() {
@@ -432,7 +432,7 @@ function service_stop()
 
 
 ##########    MAIN START   ##########
-SCRIPTENTRY "$@"
+
 
 while getopts "h?vVk:o:s:" opt; do
     case "$opt" in
@@ -461,6 +461,8 @@ done
 
 [ -z ${SERVICE_NAME} ] && usage && DIE "Server name must be set" $ERROR_UNKNOWN
 [ -z ${output_file} ] && STEVE_OUT=${output_file}
+
+SCRIPTENTRY "$@"
 
 readconfig "${STEVE_CONFIG}${SERVICE_NAME}.ini"
 
