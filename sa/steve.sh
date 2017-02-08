@@ -292,12 +292,12 @@ function check_sv_service()
         ERROR "supervisord is not running"
         return ${ERROR_SV_NOTRUNNING}
     elif [[ $sv_result == *"no such processg"* ]]; then
-        ERROR "supervisor process ${supervisor_name} is not exists"
+        ERROR "supervisor process ${SERVICE_NAME} is not exists"
         return ${ERROR_SV_NOTEXISTS}
     fi
 
     if [[ $sv_result == *"RUNNING"* ]]; then
-        INFO "supervisor process ${supervisor_name} is running"
+        INFO "supervisor process ${SERVICE_NAME} is running"
         return ${SERVICE_STATE_RUNNING}
     elif [[ $sv_result == *"FATAL"* ]]; then
         INFO "NOTICE: The previously supervisor status is FATAL"
