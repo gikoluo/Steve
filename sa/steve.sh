@@ -414,7 +414,7 @@ function service_stop()
   DEBUG "${SERVICE_TYPE} stop"
 
   if [[ "${SERVICE_TYPE}" == "supervisord" ]]; then
-    cmd="${WITH_SUDO} ${SUPERVISORCTL_BIN} stop ${supervisor_name}"
+    cmd="${WITH_SUDO} ${SUPERVISORCTL_BIN} stop ${SERVICE_NAME}"
     INFO "CMD: ${cmd}"
     RUN_RESULT=`${cmd}`
   elif [[ "${servicetype}" == "init.d" ]]; then
