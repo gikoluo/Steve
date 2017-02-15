@@ -3,7 +3,7 @@
 
 current_branch=$(git rev-parse --abbrev-ref HEAD)
 current_version=$(echo $current_branch | cut -d '/' -f2)
-current_version="0.9.1"
+
 if [[ $current_version =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
     echo "current version is ${current_version}"
 else
