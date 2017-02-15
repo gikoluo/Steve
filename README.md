@@ -39,6 +39,8 @@ files = /etc/supervisor.d/*.ini
 # Steve 配置
 ```
 [hello]
+###service manager. May be supervisord, init, systemd. Default: supervisord. 
+servicetype=supervisord
 ###set the port here. You have to check the port manually.
 use_port=10888
 ###set the pname here. I will check the processname which contains this.
@@ -51,6 +53,7 @@ retry_time=5
 forcekill=1
 ### use kill -9 in N times checking
 forcekill9=3
+
 #stdlog=/data/jfpal_workspace/architect/samples/logs/
 #JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_25.jdk/Contents/Home
 #supervisor_name=hello
