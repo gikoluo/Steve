@@ -24,6 +24,7 @@
 #%    -o [file], --output=[file]    Set log file (default=/dev/null)
 #%                                  use DEFAULT keyword to autoname file
 #%                                  The default value is /dev/null.
+#%    
 #%    -t, --timelog                 Add timestamp to log ("+%y/%m/%d@%H:%M:%S")
 #%    -x, --ignorelock              Ignore if lock file exists
 #%    -h, --help                    Print this help
@@ -193,7 +194,7 @@ function usage()
 {
   cat <<EOF
 Usage:
-$0 [h?vVfk:s:]
+$0 [h?lvVfk:s:]
 OPTIONS:
    -s     Service name
    -k     Action. start, stop, restart, debug
@@ -439,7 +440,7 @@ function service_stop()
 ##########    MAIN START   ##########
 
 
-while getopts "h?vVk:o:s:" opt; do
+while getopts "h?vlVk:o:s:" opt; do
     case "$opt" in
     h|\?)
         usage
