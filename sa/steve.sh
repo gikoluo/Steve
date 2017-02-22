@@ -56,7 +56,7 @@
 
 
 ##########    Constants   ##########
-STEVE_VERSION="0.9.1"
+STEVE_VERSION="0.9.2"
 
 ERROR_UNKNOWN=1
 ERROR_PORT_USED=2
