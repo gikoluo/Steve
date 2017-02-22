@@ -56,7 +56,7 @@
 
 
 ##########    Constants   ##########
-STEVE_VERSION="0.9.1"
+STEVE_VERSION="0.9.2"
 
 ERROR_UNKNOWN=1
 ERROR_PORT_USED=2
@@ -197,6 +197,7 @@ $0 [h?vVfk:s:]
 OPTIONS:
    -s     Service name
    -k     Action. start, stop, restart, debug
+   -l     List steve services
    -h|-?  Show this message
    -V     App Version
    -v     Verbose
@@ -209,6 +210,10 @@ EOF
 function version()
 {
     echo ${STEVE_VERSION};
+}
+
+function list_services() {
+    ls -1 "$STEVE_CONFIG"
 }
 
 #Read the config, formatted with "key=value".
@@ -438,6 +443,10 @@ while getopts "h?vVk:o:s:" opt; do
     case "$opt" in
     h|\?)
         usage
+        exit 0
+        ;;
+    l)
+        list_services
         exit 0
         ;;
     V)  
