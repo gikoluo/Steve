@@ -243,7 +243,7 @@ function check_port()
 
   PID=`${WITH_SUDO} ${LSOF_BIN} -Pn -i:${port} -sTCP:LISTEN |grep -v COMMAND |awk '{print \$2}'`
   PID_STR=$(join , ${PID[@]})
-  if [ -z $PID ]; then
+  if [ -z "$PID" ]; then
       INFO "Port ${port} is free"
   else
       INFO "Port ${port} is used"
