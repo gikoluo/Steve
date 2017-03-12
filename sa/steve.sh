@@ -91,6 +91,7 @@ RUN_CODE=
 
 ##########    Initialize config, which can be override in steve.conf   ##########
 SUPERVISORCTL_BIN="supervisorctl"
+UPSTART_BIN="initctl"
 LSOF_BIN="lsof"
 STEVE_OUT="/var/log/steve.log"
 WITH_SUDO=""
@@ -293,30 +294,46 @@ function check_pname()
 
 
 function check_sv_service()
-{
-    if [[ $sv_result == *"supervisor.sock no such file"* ]]; then
-        ERROR "supervisord is not running"
-        return ${ERROR_SV_NOTRUNNING}
-    elif [[ $sv_result == *"no such processg"* ]]; then
-        ERROR "supervisor process ${SERVICE_NAME} is not exists"
-        return ${ERROR_SV_NOTEXISTS}
-    fi
+  if [[ $sv_result == *"supervisor.sock no such file"* ]]; then
+      ERROR "supervisord is not running"
+      return ${ERROR_SV_NOTRUNNING}
+  elif [[ $sv_result == *"no such processg"* ]]; then
+      ERROR "supervisor process ${SERVICE_NAME} is not exists"
+      return ${ERROR_SV_NOTEXISTS}
+  fi
 
-    if [[ $sv_result == *"RUNNING"* ]]; then
-        INFO "supervisor process ${SERVICE_NAME} is running"
-        return ${SERVICE_STATE_RUNNING}
-    elif [[ $sv_result == *"FATAL"* ]]; then
-        INFO "NOTICE: The previously supervisor status is FATAL"
-        return ${SERVICE_STATE_FATAL}
-    elif [[ $sv_result == *"STOPPED"* ]]; then
-        INFO "The previously supervisor status is STOPPED"
-        return ${SERVICE_STATE_NOT_RUNNING}
-    elif [[ $sv_result == *"EXITED"* ]]; then
-        INFO "The previously supervisor status is EXITED"
-        return ${SERVICE_STATE_EXITED}
-    fi
+  if [[ $sv_result == *"RUNNING"* ]]; then
+      INFO "supervisor process ${SERVICE_NAME} is running"
+      return ${SERVICE_STATE_RUNNING}
+  elif [[ $sv_result == *"FATAL"* ]]; then
+      INFO "NOTICE: The previously supervisor status is FATAL"
+      return ${SERVICE_STATE_FATAL}
+  elif [[ $sv_result == *"STOPPED"* ]]; then
+      INFO "The previously supervisor status is STOPPED"
+      return ${SERVICE_STATE_NOT_RUNNING}
+  elif [[ $sv_result == *"EXITED"* ]]; then
+      INFO "The previously supervisor status is EXITED"
+      return ${SERVICE_STATE_EXITED}
+  fi
 
-    return ${SERVICE_STATE_UNKNOWN}
+  return ${SERVICE_STATE_UNKNOWN}
+}
+
+function check_upstart_service() {
+  if [[ $sv_result == *"Unknown job"* ]]; then
+      ERROR "servive ${SERVICE_NAME} is not exists"
+      return ${ERROR_SV_NOTEXISTS}
+  fi
+
+  if [[ $sv_result == *"start/running"* ]]; then
+      INFO "servive process ${SERVICE_NAME} is running"
+      return ${SERVICE_STATE_RUNNING}
+  elif [[ $sv_result == *"stop/waiting"* ]]; then
+      INFO "The previously supervisor status is STOPPED"
+      return ${SERVICE_STATE_NOT_RUNNING}
+  fi
+
+  return ${SERVICE_STATE_UNKNOWN}
 }
 
 function service_prepare_check() 
@@ -332,6 +349,15 @@ function service_prepare_check()
     cmd_result=`${cmd}`
 
     chk_result=`check_sv_service`
+    chk_code=$?
+
+    INFO "CMD>: ${check_result}" 
+    return $chk_code
+  elif [[ $SERVICE_TYPE == "upstart" ]]; then
+    cmd="${WITH_SUDO} ${UPSTART_BIN} status ${SERVICE_NAME}"
+    INFO "CMD: ${cmd}"
+    cmd_result=`${cmd}`
+    chk_result=`check_upstart_service`
     chk_code=$?
 
     INFO "CMD>: ${check_result}" 
@@ -362,6 +388,10 @@ function service_start()
 
   if [[ $SERVICE_TYPE == "supervisord" ]]; then
     cmd="${WITH_SUDO} ${SUPERVISORCTL_BIN} start ${SERVICE_NAME}"
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
+  elif [[ $SERVICE_TYPE == "upstart" ]]; then
+    cmd="${WITH_SUDO} ${UPSTART_BIN} start ${SERVICE_NAME}"
     INFO "CMD: ${cmd}"
     RUN_RESULT=`${cmd}`
   elif [[ $servicetype == "init.d" ]]; then
@@ -421,6 +451,10 @@ function service_stop()
 
   if [[ "${SERVICE_TYPE}" == "supervisord" ]]; then
     cmd="${WITH_SUDO} ${SUPERVISORCTL_BIN} stop ${SERVICE_NAME}"
+    INFO "CMD: ${cmd}"
+    RUN_RESULT=`${cmd}`
+  elif [[ "${SERVICE_TYPE}" == "upstart" ]]; then
+    cmd="${WITH_SUDO} ${UPSTART_BIN} stop ${SERVICE_NAME}"
     INFO "CMD: ${cmd}"
     RUN_RESULT=`${cmd}`
   elif [[ "${servicetype}" == "init.d" ]]; then
