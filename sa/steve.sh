@@ -294,6 +294,7 @@ function check_pname()
 
 
 function check_sv_service()
+{
   if [[ $sv_result == *"supervisor.sock no such file"* ]]; then
       ERROR "supervisord is not running"
       return ${ERROR_SV_NOTRUNNING}
