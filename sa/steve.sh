@@ -99,7 +99,7 @@ VERBOSE=false
 
 [ -z "$STEVE_CONFIG" ] && STEVE_CONFIG="/etc/steve/"
 
-STEVE_ENV="${STEVE_CONFIG}/setenv.sh"
+STEVE_ENV="${STEVE_CONFIG}/.setenv.sh"
 [ -f $STEVE_ENV ] && source $STEVE_ENV
 
 ##########    Initialize config END   ##########
@@ -215,7 +215,7 @@ function version()
 }
 
 function list_services() {
-    ls -1 "$STEVE_CONFIG"
+    ls -1 "$STEVE_CONFIG" | sed -e 's/\.ini$//'
 }
 
 #Read the config, formatted with "key=value".
