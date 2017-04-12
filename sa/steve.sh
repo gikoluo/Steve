@@ -421,11 +421,11 @@ function service_check_supervisor() {
     INFO "FATAL: The supervisor status is FATAL: ${RUN_RESULT}" 
     return ${SERVICE_STATE_FATAL}
   elif [[ $RUN_RESULT == *"FATAL"* ]]; then
-      INFO "FATAL: The supervisor status is FATAL" 
-      return ${SERVICE_STATE_FATAL}
+    INFO "FATAL: The supervisor status is FATAL" 
+    return ${SERVICE_STATE_FATAL}
   elif [[ $RUN_RESULT == *"STOPPED"* ]]; then
-      INFO "FATAL: The supervisor status is STOPPED" 
-      return ${SERVICE_STATE_EXITED}
+    INFO "FATAL: The supervisor status is STOPPED" 
+    return ${SERVICE_STATE_EXITED}
   elif [[ $RUN_RESULT == *"EXITED"* ]]; then
       INFO "FATAL: The supervisor status is EXITED" 
       return ${SERVICE_STATE_EXITED}
@@ -434,7 +434,9 @@ function service_check_supervisor() {
 
 function service_check() {
   if [[ $SERVICE_TYPE == "supervisord" ]]; then
-    return `service_check_supervisor`
+    service_check_supervisor
+    service_check_code=$?
+    return $service_check_code
   elif [[ $servicetype == "init.d" ]]; then
     DEBUG "";
   elif [[ $servicetype == "systemd" ]]; then
