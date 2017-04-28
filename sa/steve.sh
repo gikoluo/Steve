@@ -116,6 +116,8 @@ cfn="${FUNCNAME[1]}"
 script_name=`basename "$0"`
 script_name="${script_name%.*}"
 date_format="+%Y-%m-%dT%H:%M:%S%z"
+
+SESSIONID=`date +%s | sha256sum | base64 | head -c 32`
 function log_time() {
   echo `date "${date_format}"`
 }
@@ -123,56 +125,52 @@ function join { local IFS="$1"; shift; echo "$*"; }
 
 function SCRIPTENTRY(){
   local msg="$1"
-  local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  > $script_name $FUNCNAME $msg" | tee -a $SCRIPT_LOG
+  INFO "$cfn $FUNCNAME $msg"
 }
 
 function SCRIPTEXIT(){
-  local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}] < $script_name $FUNCNAME" |tee -a $SCRIPT_LOG
+  INFO "$cfn $FUNCNAME"
 }
 
 function ENTRY(){
-  local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  > $cfn $FUNCNAME" |tee -a $SCRIPT_LOG
+  INFO "$cfn $FUNCNAME"
 }
 
 function EXIT(){
-  local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  < $cfn $FUNCNAME" |tee -a $SCRIPT_LOG
+  INFO "$cfn $FUNCNAME"
 }
 
 
 function INFO(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [INFO] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
+  echo "[$timeAndDate] [$SESSIONID] [INFO] [${SERVICE_NAME}] >>> $msg" |tee -a $SCRIPT_LOG
 }
 
 
 function DEBUG(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [DEBUG] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
+  echo "[$timeAndDate] [$SESSIONID] [DEBUG] [${SERVICE_NAME}] >>> $msg" |tee -a $SCRIPT_LOG
 }
 
 function ERROR(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [ERROR] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
+  echo "[$timeAndDate] [$SESSIONID] [ERROR] [${SERVICE_NAME}] >>> $msg" |tee -a $SCRIPT_LOG
 }
 ####################    logger end    ###################
 
 function WARNING(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [WARNING] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
+  echo "[$timeAndDate] [$SESSIONID] [WARNING] [${SERVICE_NAME}] >>> $msg" |tee -a $SCRIPT_LOG
 }
 
 function FATAL(){
   local msg="$1"
   local timeAndDate=`log_time`
-  echo "[$timeAndDate] [FATAL] [${SERVICE_NAME}]  $msg" |tee -a $SCRIPT_LOG
+  echo "[$timeAndDate] [$SESSIONID] [FATAL] [${SERVICE_NAME}] >>> $msg" |tee -a $SCRIPT_LOG
 }
 
 function DIE() {
