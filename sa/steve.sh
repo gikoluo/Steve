@@ -279,7 +279,7 @@ function check_pname()
 {
   PID=
   local pname=${1}
-  PID=`ps aux | grep "${pname}" | grep -v "grep" |awk '{print $2}'`
+  PID=`ps aux | grep "${pname}" | grep -v "grep" | grep -v "steve" |awk '{print $2}'`
   PID_STR=$(join , ${PID[@]})
 
   if [ ! -z "$PID" ]; then
