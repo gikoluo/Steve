@@ -1,4 +1,4 @@
-package com.jfpal
+package com.luochunhui
 
 
 class Utilities {
@@ -15,7 +15,7 @@ class Utilities {
     List javaEnv = [
         "PATH+JDK=${jdktool}/bin", "JAVA_HOME=${jdktool}",
         '_JAVA_OPTIONS=-XX:MaxPermSize=160m -Xmx256m -Djava.awt.headless=true',
-        'GIT_COMMITTER_EMAIL=lch@jfpal.com','GIT_COMMITTER_NAME=LCH@Jenkins','GIT_AUTHOR_NAME=LCH','GIT_AUTHOR_EMAIL=lch@jfpal.com', 'LOGNAME=LCH@Jenkins'
+        'GIT_COMMITTER_EMAIL=wo@luochunhui.com','GIT_COMMITTER_NAME=LCH@Jenkins','GIT_AUTHOR_NAME=LCH','GIT_AUTHOR_EMAIL=wo@luochunhui.com', 'LOGNAME=LCH@Jenkins'
     ]
 
     /* Call maven tool with java envVars. */

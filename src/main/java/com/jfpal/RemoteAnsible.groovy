@@ -1,4 +1,4 @@
-package com.jfpal
+package com.luochunhui
 
 
 class Remote implements Serializable {

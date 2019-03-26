@@ -54,13 +54,13 @@ forcekill=1
 ### use kill -9 in N times checking
 forcekill9=3
 
-#stdlog=/data/jfpal_workspace/architect/samples/logs/
+#stdlog=/data/workspace/architect/samples/logs/
 #JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_25.jdk/Contents/Home
 #supervisor_name=hello
 ### type may be jar, tomcat, weblogic
 type=jar
 ### file is no useful
-file=/data/jfpal_workspace/architect/samples/hello.jar
+file=/data/workspace/architect/samples/hello.jar
 ```
 配置为键值对，以=分割。 以#,[开头的配置行被直接忽略， 没有=号的也被忽略。  =号两边不要放空格， 行首行尾不要放空格。
 
